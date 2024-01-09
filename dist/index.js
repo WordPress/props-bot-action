@@ -37853,7 +37853,7 @@ async function getContributorsList() {
 						return;
 					}
 
-					return `Co-authored-by: ${username} <${dotOrg}@git.wordpress.org>`;
+					return `Co-Authored-By: ${username} <${dotOrg}@git.wordpress.org>`;
 				})
 				.filter((el) => el)
 				.join("\n")
