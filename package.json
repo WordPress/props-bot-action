@@ -1,7 +1,7 @@
 {
-  "name": "wordpress-props",
+  "name": "props-bot-action",
   "version": "1.0.0",
-  "description": "JavaScript Action Template",
+  "description": "Generates WordPress.org style props for easy pasting into merge commit messages.",
   "main": "index.js",
   "scripts": {
     "lint": "eslint .",
@@ -11,19 +11,20 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/actions/javascript-action.git"
+    "url": "git+https://github.com/WordPress/props-bot.git"
   },
   "keywords": [
+    "WordPress",
     "GitHub",
     "Actions",
     "JavaScript"
   ],
-  "author": "",
-  "license": "MIT",
+  "author": "The WordPress Contributors",
+  "license": "GPL-2.0-or-later",
   "bugs": {
-    "url": "https://github.com/actions/javascript-action/issues"
+    "url": "https://github.com/WordPress/props-bot/issues"
   },
-  "homepage": "https://github.com/actions/javascript-action#readme",
+  "homepage": "https://github.com/WordPress/props-bot#readme",
   "dependencies": {
     "@actions/core": "^1.10.1",
     "@actions/github": "^6.0.0",

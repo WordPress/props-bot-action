@@ -1,9 +1,9 @@
 # WordPress Props - GitHub Action
-> Collects a list of contributors associated with a pull request and lists WordPress.org usernames.
+> A GitHub Action with the goal of ensuring everyone receives the credit they deserve with easily parsable, WordPress.org style attribution. 
 
 ## Overview
 
-This GitHub Action Helps with collectiong a list of contributors associated with a pull request and lists WordPress.org usernames.
+This GitHub Action Helps with collecting contributors associated with a pull request and lists WordPress.org usernames.
 
 ## Configuration
 
@@ -24,7 +24,11 @@ on:
   pull_request:
   issue_comment:
   pull_request_review:
+    types:
+      - submitted
   pull_request_review_comment:
+    types:
+      - created
 
 # Cancels all previous workflow runs for pull requests that have not completed.
 concurrency:
@@ -40,10 +44,10 @@ jobs:
     timeout-minutes: 20
 
     # Collects a list of contributors for a pull request and shares a list of
-    # Co-authored-by: trailers for merging contributors.
+    # Co-authored-by: trailers for merging contributors to copy into the commit message.
     steps:
       - name: Compile contributor list and comment on the PR
-        uses: desrosj/wordpress-props@main
+        uses: WordPress/props-bot@main
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 ```

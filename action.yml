@@ -1,5 +1,5 @@
 name: 'WordPress Props'
-description: 'Collects a list of contributors associated with a pull request and lists WordPress.org usernames.'
+description: 'Leaves a list of all contributors associated with a pull request and linked issues in a comment for use within merge commits messages.'
 inputs:
   token:
     description: 'GitHub secret token.'
