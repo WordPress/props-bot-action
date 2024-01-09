@@ -1,0 +1,10 @@
+name: 'WordPress Props'
+description: 'Collects a list of contributors associated with a pull request and lists WordPress.org usernames.'
+inputs:
+  token:
+    description: 'GitHub secret token.'
+    required: true
+    default: ${{ github.token }}
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
