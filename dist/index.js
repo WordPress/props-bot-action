@@ -37660,7 +37660,7 @@ if ( 'issue_comment' === context.eventName ) {
  *
  * @type {string[]}
  */
-const contributorTypes = ["committers", "reviewers", "commenters", "reporters", "unconnected"];
+const contributorTypes = ["committers", "reviewers", "commenters", "reporters", "unlinked"];
 
 /**
  * List of user data objects.
@@ -37837,9 +37837,9 @@ async function getContributorsList() {
 				header +
 			[...contributors[priority]]
 				.map((username) => {
-					if ('unconnected' == priority) {
-						core.debug( 'Unconnected contributor: ' + username );
-						return username;
+					if ('unlinked' == priority) {
+						core.debug( 'Unlinked contributor: ' + username );
+						return `Unlinked contributor: ${username}`;
 					}
 
 					const { dotOrg } = userData[username];
@@ -37849,7 +37849,7 @@ async function getContributorsList() {
 							"dotOrg"
 						)
 					) {
-						contributors.unconnected.add(username);
+						contributors.unlinked.add(username);
 						return;
 					}
 
