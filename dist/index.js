@@ -37828,38 +37828,33 @@ async function getContributorsList() {
 				return [];
 			}
 
-			// Add a header for each section.
-			const header =
-        "# " + priority.replace(/^./, (char) => char.toUpperCase()) + "\n";
-
 			// Generate each props entry, and join them into a single string.
 			return (
-				header +
-			[...contributors[priority]]
-				.map((username) => {
-					if ('unlinked' == priority) {
-						core.debug( 'Unlinked contributor: ' + username );
-						return `Unlinked contributor: ${username}`;
-					}
+				[...contributors[priority]]
+					.map((username) => {
+						if ('unlinked' == priority) {
+							core.debug( 'Unlinked contributor: ' + username );
+							return `Unlinked contributor: ${username}`;
+						}
 
-					const { dotOrg } = userData[username];
-					if (
-						!Object.prototype.hasOwnProperty.call(
-							userData[username],
-							"dotOrg"
-						)
-					) {
-						contributors.unlinked.add(username);
-						return;
-					}
+						const { dotOrg } = userData[username];
+						if (
+							!Object.prototype.hasOwnProperty.call(
+								userData[username],
+								"dotOrg"
+							)
+						) {
+							contributors.unlinked.add(username);
+							return;
+						}
 
-					return `Co-Authored-By: ${username} <${dotOrg}@git.wordpress.org>`;
-				})
-				.filter((el) => el)
-				.join("\n")
+						return `Co-Authored-By: ${username} <${dotOrg}@git.wordpress.org>`;
+					})
+					.filter((el) => el)
+					.join("\n")
 			);
 		})
-		.join("\n\n");
+		.join("\n");
 }
 
 /**
