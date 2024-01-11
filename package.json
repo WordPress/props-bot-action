@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "Generates WordPress.org style props for easy pasting into merge commit messages.",
   "main": "index.js",
+  "engines": {
+    "node": ">=20.7.0",
+    "npm": ">=10.1"
+  },
   "scripts": {
     "lint": "eslint .",
     "prepare": "ncc build index.js -o dist --license licenses.txt",
