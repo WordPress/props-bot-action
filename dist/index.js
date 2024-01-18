@@ -35423,7 +35423,7 @@ class GitHub {
 		};
 
 		let commentMessage = "Hello contributors!\n\n" +
-		"I've collected a list of people who have interacted in some way with this pull request or any linked issues. There's a few useful formats included below, and I'll continue to update this list as activity occurs.\n\n";
+		"I've collected a list of people who have interacted in some way with this pull request or any linked issues. There's a few useful formats included below and I'll continue to update this list as activity occurs.\n\n";
 
 		if ( contributorsList['unlinked'].length > 0 ) {
 			commentMessage += "## Unlinked Accounts\n\n" +
@@ -35448,14 +35448,14 @@ class GitHub {
 
 		commentMessage += contributorsList['coAuthored'].join("\n") +
 		"\n```\n\n" +
-		"**Important notes**:" +
-			"- Giving props is mandatory for this repository if you are a project maintainer or committer**.\n\n" +
+		"**Important notes for committers and maintainers**:\n" +
+			"- **Giving props is mandatory for this repository if you are a project maintainer or committer**.\n\n" +
 			"- The list of `Co-Authored-By:` trailers must be preceded by a blank line.\n" +
-			"- Usernames must not start with an `@`.\n" +
-			"- Nothing can come after the `Co-Authored-By:` trailers.\n" +
-			"- Please include the list of unlinked contributors. If they do connect their GitHub and WordPress.org accounts in the future, this contribution can be credited to them later.\n" +
+			"- Usernames must not start with an `@` symbol.\n" +
+			"- Nothing can come after the `Co-Authored-By:` trailers in the commit message.\n" +
+			"- Please include the list of unlinked contributors. If they connect their GitHub and WordPress.org accounts in the future, this contribution allows a script to credit them later.\n" +
 			"- Merging contributors should remove themselves from the list. As the merging contributor, props will be given for being the author of the merge commit.\n" +
-			"- As always, please manually review this list. [Give props liberally](https://make.wordpress.org/core/handbook/best-practices/commit-messages/#props), but remove anyone users who spammed or did not contribute positively.\n" +
+			"- **Please manually review this list.** Add anyone that contributed elsewhere using a [give props liberally](https://make.wordpress.org/core/handbook/best-practices/commit-messages/#props) approach. Use best judgement to remove anyone users who spammed or did not contribute positively.\n" +
 			"- If you're unsure, please ask in the [#core-committers channel in Slack](https://wordpress.slack.com/archives/C18723MQ8).\n";
 
 		const comment = {
