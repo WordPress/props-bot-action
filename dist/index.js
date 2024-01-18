@@ -35421,14 +35421,12 @@ class GitHub {
 		};
 
 		let commentMessage = "Hello contributors!\n\n" +
-		"I've collected a list of people who have interacted in some way with this pull request or any linked issues. There's a few useful formats included below and I'll continue to update this list as activity occurs.\n\n";
+		"The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs.\n\n";
 
 		if ( contributorsList['unlinked'].length > 0 ) {
 			commentMessage += "## Unlinked Accounts\n\n" +
-				"It appears there are some GitHub contributors participating here that have not linked their WordPress.org accounts.\n\n" +
-				"@" + contributorsList['unlinked'].join(', @') + ": Thank you for your contribution to this repository!\n\n" +
-				"The WordPress project gives contributors attribution through the [WordPress.org Credits API](https://api.wordpress.org/core/credits/1.1/). However, attribution can only be given to a WordPress.org account.\n\n" +
-				"Please take a moment to connect your GitHub and WordPress.org accounts when you have a moment so that your contribution can be properly recognized. You'll find [step by step instructions on the Making WordPress Core blog](https://make.wordpress.org/core/2020/03/19/associating-github-accounts-with-wordpress-org-profiles/).\n\n";
+				"The following contributors have not linked their GitHub and WordPress.org accounts: @" + contributorsList['unlinked'].join(', @') + ".\n\n" +
+				"Please [read how to link your accounts](https://make.wordpress.org/core/2020/03/19/associating-github-accounts-with-wordpress-org-profiles/) here to ensure your work is properly credited in WordPress releases.\n\n";
 		}
 
 		commentMessage += "## Core SVN\n\n" +
@@ -35446,14 +35444,7 @@ class GitHub {
 
 		commentMessage += contributorsList['coAuthored'].join("\n") +
 		"\n```\n\n" +
-		"**Important notes for committers and maintainers**:\n" +
-			"- **Giving props is mandatory for this repository if you are a project maintainer or committer**.\n\n" +
-			"- The list of `Co-Authored-By:` trailers must be preceded by a blank line.\n" +
-			"- Usernames must not start with an `@` symbol.\n" +
-			"- Nothing can come after the `Co-Authored-By:` trailers in the commit message.\n" +
-			"- Please include the list of unlinked contributors. If they connect their GitHub and WordPress.org accounts in the future, this contribution allows a script to credit them later.\n" +
-			"- **Please manually review this list.** Add anyone that contributed elsewhere using a [give props liberally](https://make.wordpress.org/core/handbook/best-practices/commit-messages/#props) approach. Use best judgement to remove anyone users who spammed or did not contribute positively.\n" +
-			"- If you're unsure, please ask in the [#core-committers channel in Slack](https://wordpress.slack.com/archives/C18723MQ8).\n";
+		"**If you are not familiar with the WordPress project's expectations around giving crediting contributors, please review this handbook page before continuing.**:\n";
 
 		const comment = {
 			...commentInfo,
