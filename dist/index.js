@@ -35421,7 +35421,7 @@ class GitHub {
 		};
 
 		let commentMessage = "Hello contributors!\n\n" +
-		"The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs.\n\n";
+		"The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs, or manually ask me to refresh this list by adding the `props-bot` label.\n\n";
 
 		if ( contributorsList['unlinked'].length > 0 ) {
 			commentMessage += "## Unlinked Accounts\n\n" +
@@ -35444,7 +35444,7 @@ class GitHub {
 
 		commentMessage += contributorsList['coAuthored'].join("\n") +
 		"\n```\n\n" +
-		"**If you are not familiar with the WordPress project's expectations around giving crediting contributors, please review this handbook page before continuing.**:\n";
+		"**If you are not familiar with the WordPress project's expectations around giving crediting contributors, please review this handbook page before continuing.**\n";
 
 		const comment = {
 			...commentInfo,

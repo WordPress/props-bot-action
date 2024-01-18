@@ -160,7 +160,7 @@ export default class GitHub {
 
 		commentMessage += contributorsList['coAuthored'].join("\n") +
 		"\n```\n\n" +
-		"**If you are not familiar with the WordPress project's expectations around giving crediting contributors, please review this handbook page before continuing.**:\n";
+		"**If you are not familiar with the WordPress project's expectations around giving crediting contributors, please review this handbook page before continuing.**\n";
 
 		const comment = {
 			...commentInfo,
