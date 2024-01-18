@@ -104,6 +104,7 @@ export async function getContributorsList() {
 		.forEach((comment) => contributors.commenters.add(comment.author.login));
 
 	core.debug('Commenters:');
+	core.debug(contributors);
 	core.debug(contributors.commenters);
 
 	// Process reporters and commenters for linked issues.
@@ -162,8 +163,13 @@ export async function getContributorsList() {
 		core.debug(githubUsers);
 	}
 
+	// List to return from the function.
+	const contributorLists = [];
+	contributorLists['github'] = [];
+
 	// Collect WordPress.org usernames
 	const wpOrgData = await getWPOrgData(githubUsers);
+	contributorLists['svn'] = [];
 
 	core.debug('WordPress.org raw data:');
 	core.debug(wpOrgData);
@@ -175,28 +181,25 @@ export async function getContributorsList() {
 			wpOrgData[contributor] !== false
 		) {
 			userData[contributor].dotOrg = wpOrgData[contributor].slug;
+			contributorLists['svn'].push(wpOrgData[contributor].slug);
 		}
 	});
 
-	return contributorTypes
+	contributorLists['coAuthored'] = [];
+	contributorLists['unlinked'] = [];
+
+	contributorTypes
 		.map((priority) => {
 			// Skip an empty set of contributors.
 			if (contributors[priority].length === 0) {
 				return [];
 			}
 
-			// Add a header for each section.
-			const header =
-        "# " + priority.replace(/^./, (char) => char.toUpperCase()) + "\n";
-
-			// Generate each props entry, and join them into a single string.
-			return (
-				header +
 			[...contributors[priority]]
 				.map((username) => {
 					if ('unlinked' == priority) {
 						core.debug( 'Unlinked contributor: ' + username );
-						return `Unlinked contributor: ${username}`;
+						return;
 					}
 
 					const { dotOrg } = userData[username];
@@ -206,17 +209,18 @@ export async function getContributorsList() {
 							"dotOrg"
 						)
 					) {
-						contributors.unlinked.add(username);
+						contributorLists['unlinked'].push(username);
 						return;
 					}
 
-					return `Co-Authored-By: ${username} <${dotOrg}@git.wordpress.org>`;
+					return contributorLists['coAuthored'].push( `Co-Authored-By: ${username} <${dotOrg}@git.wordpress.org>` );
 				})
-				.filter((el) => el)
-				.join("\n")
-			);
-		})
-		.join("\n\n");
+				.filter((el) => el);
+		});
+
+	core.debug( contributorLists );
+
+	return contributorLists;
 }
 
 /**

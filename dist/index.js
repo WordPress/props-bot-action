@@ -35397,13 +35397,18 @@ class GitHub {
 	 * - If a comment already exists, it will be updated.
 	 *
 	 * @param {Object} context The GitHub context.
-	 * @param {string} contributorsList The list of contributors.
+	 * @param {array} contributorsList The list of contributors.
 	 */
 	async commentProps({ context, contributorsList }) {
 		if (!contributorsList) {
-			core.info("No contributors list provided.");
+			core.info("No contributors were provided.");
 			return;
 		}
+
+		core.debug( "Contributor list received:" );
+		core.debug( contributorsList );
+		core.debug( contributorsList.svn );
+		console.debug( contributorsList );
 
 		let prNumber = context.payload?.pull_request?.number;
 		if ( 'issue_comment' === context.eventName ) {
@@ -35417,11 +35422,38 @@ class GitHub {
 			issue_number: prNumber,
 		};
 
-		const commentMessage =
-		"Here is a list of everyone that appears to have contributed to this PR and any linked issues:\n\n" +
+		let commentMessage = "Hello contributors!\n\n" +
+		"I've collected a list of people who have interacted in some way with this pull request or any linked issues. I'll continue to update this list as activity occurs.\n\n";
+
+		if ( contributorsList['unlinked'].length > 0 ) {
+			commentMessage += "## Unlinked Accounts\n\n" +
+				"It appears there are some GitHub contributors participating here that have not linked their WordPress.org accounts.\n\n" +
+				"@" + contributorsList['unlinked'].join(', @') + ": Thank you for your contribution to this repository!\n\n" +
+				"The WordPress project gives contributors attribution through the [WordPress.org Credits API](https://api.wordpress.org/core/credits/1.1/). However, attribution can only be given to a WordPress.org account." +
+				"Please take a moment to connect your GitHub and WordPress.org accounts when you have a moment so that your contribution can be properly recognized. You'll find [step by step instructions on the Making WordPress Core blog](https://make.wordpress.org/core/2020/03/19/associating-github-accounts-with-wordpress-org-profiles/).\n\n";
+		}
+
+		commentMessage += "**Reminder: giving props is mandatory for any repository under the WordPress organization if you are a project maintainer or committer**.\n\n" +
+		"Here is a contributor list formatted in a few ways.:\n\n" +
+		"## Core SVN\n\n" +
+		"If you're a Core Committer, use this list when committing to `wordpress-develop` in SVN:\n" +
 		"```\n" +
-		contributorsList +
-		"\n```";
+		"Props: " + contributorsList['svn'].join(', ') + "." +
+		"\n```\n\n" +
+		"## GitHub Merge commits\n\n" +
+		"If you're merging code through a pull request on GitHub, copy and paste the following into the bottom of the merge commit message.\n\n" +
+		"```\n" +
+		"Unlinked contributors: " + contributorsList['unlinked'].join(', ') + ".\n\n" +
+		contributorsList['coAuthored'].join("\n") +
+		"\n```\n\n" +
+		"**Important notes**:" +
+			"- The list of `Co-Authored-By:` trailers must be preceded by a blank line.\n" +
+			"- Usernames must not start with an `@`.\n" +
+			"- Nothing can come after the `Co-Authored-By:` trailers.\n" +
+			"- Please include the list of unlinked contributors. If they do connect their GitHub and WordPress.org accounts in the future, this contribution can be credited to them later.\n" +
+			"- Merging contributors should remove themselves from the list. As the merging contributor, props will be given for being the author of the merge commit.\n" +
+			"- As always, please manually review this list. [Give props liberally](https://make.wordpress.org/core/handbook/best-practices/commit-messages/#props), but remove anyone users who spammed or did not contribute positively.\n" +
+			"- If you're unsure, please ask in the [#core-committers channel in Slack](https://wordpress.slack.com/archives/C18723MQ8).\n";
 
 		const comment = {
 			...commentInfo,
@@ -37747,6 +37779,7 @@ async function getContributorsList() {
 		.forEach((comment) => contributors.commenters.add(comment.author.login));
 
 	core.debug('Commenters:');
+	core.debug(contributors);
 	core.debug(contributors.commenters);
 
 	// Process reporters and commenters for linked issues.
@@ -37805,8 +37838,13 @@ async function getContributorsList() {
 		core.debug(githubUsers);
 	}
 
+	// List to return from the function.
+	const contributorLists = [];
+	contributorLists['github'] = [];
+
 	// Collect WordPress.org usernames
 	const wpOrgData = await getWPOrgData(githubUsers);
+	contributorLists['svn'] = [];
 
 	core.debug('WordPress.org raw data:');
 	core.debug(wpOrgData);
@@ -37818,28 +37856,25 @@ async function getContributorsList() {
 			wpOrgData[contributor] !== false
 		) {
 			userData[contributor].dotOrg = wpOrgData[contributor].slug;
+			contributorLists['svn'].push(wpOrgData[contributor].slug);
 		}
 	});
 
-	return contributorTypes
+	contributorLists['coAuthored'] = [];
+	contributorLists['unlinked'] = [];
+
+	contributorTypes
 		.map((priority) => {
 			// Skip an empty set of contributors.
 			if (contributors[priority].length === 0) {
 				return [];
 			}
 
-			// Add a header for each section.
-			const header =
-        "# " + priority.replace(/^./, (char) => char.toUpperCase()) + "\n";
-
-			// Generate each props entry, and join them into a single string.
-			return (
-				header +
 			[...contributors[priority]]
 				.map((username) => {
 					if ('unlinked' == priority) {
 						core.debug( 'Unlinked contributor: ' + username );
-						return `Unlinked contributor: ${username}`;
+						return;
 					}
 
 					const { dotOrg } = userData[username];
@@ -37849,17 +37884,18 @@ async function getContributorsList() {
 							"dotOrg"
 						)
 					) {
-						contributors.unlinked.add(username);
+						contributorLists['unlinked'].push(username);
 						return;
 					}
 
-					return `Co-Authored-By: ${username} <${dotOrg}@git.wordpress.org>`;
+					return contributorLists['coAuthored'].push( `Co-Authored-By: ${username} <${dotOrg}@git.wordpress.org>` );
 				})
-				.filter((el) => el)
-				.join("\n")
-			);
-		})
-		.join("\n\n");
+				.filter((el) => el);
+		});
+
+	core.debug( contributorLists );
+
+	return contributorLists;
 }
 
 /**
