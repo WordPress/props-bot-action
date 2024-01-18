@@ -136,8 +136,7 @@ export default class GitHub {
 			issue_number: prNumber,
 		};
 
-		let commentMessage = "Hello contributors!\n\n" +
-		"The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs, or manually ask me to refresh this list by adding the `props-bot` label.\n\n";
+		let commentMessage = "The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs, or manually ask me to refresh this list by adding the `props-bot` label.\n\n";
 
 		if ( contributorsList['unlinked'].length > 0 ) {
 			commentMessage += "## Unlinked Accounts\n\n" +
@@ -160,7 +159,7 @@ export default class GitHub {
 
 		commentMessage += contributorsList['coAuthored'].join("\n") +
 		"\n```\n\n" +
-		"**If you are not familiar with the WordPress project's expectations around giving crediting contributors, please review this handbook page before continuing.**\n";
+		"**To understand the WordPress project's expectations around crediting contributors, please [review the core handbook](https://make.wordpress.org/core/handbook/).**\n";
 
 		const comment = {
 			...commentInfo,
