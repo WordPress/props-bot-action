@@ -35440,9 +35440,13 @@ class GitHub {
 		"\n```\n\n" +
 		"## GitHub Merge commits\n\n" +
 		"If you're merging code through a pull request on GitHub, copy and paste the following into the bottom of the merge commit message.\n\n" +
-		"```\n" +
-		"Unlinked contributors: " + contributorsList['unlinked'].join(', ') + ".\n\n" +
-		contributorsList['coAuthored'].join("\n") +
+		"```\n";
+
+		if ( contributorsList['unlinked'].length > 0 ) {
+			commentMessage += "Unlinked contributors: " + contributorsList['unlinked'].join(', ') + ".\n\n";
+		}
+
+		commentMessage += contributorsList['coAuthored'].join("\n") +
 		"\n```\n\n" +
 		"**Important notes**:" +
 			"- Giving props is mandatory for this repository if you are a project maintainer or committer**.\n\n" +
