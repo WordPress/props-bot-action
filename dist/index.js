@@ -35452,7 +35452,6 @@ class GitHub {
 			"- Usernames must not start with an `@` symbol.\n" +
 			"- Nothing can come after the `Co-Authored-By:` trailers in the commit message.\n" +
 			"- Please include the list of unlinked contributors. If they connect their GitHub and WordPress.org accounts in the future, this contribution allows a script to credit them later.\n" +
-			"- Merging contributors should remove themselves from the list. As the merging contributor, props will be given for being the author of the merge commit.\n" +
 			"- **Please manually review this list.** Add anyone that contributed elsewhere using a [give props liberally](https://make.wordpress.org/core/handbook/best-practices/commit-messages/#props) approach. Use best judgement to remove anyone users who spammed or did not contribute positively.\n" +
 			"- If you're unsure, please ask in the [#core-committers channel in Slack](https://wordpress.slack.com/archives/C18723MQ8).\n";
 
