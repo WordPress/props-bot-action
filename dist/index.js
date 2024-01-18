@@ -35423,19 +35423,17 @@ class GitHub {
 		};
 
 		let commentMessage = "Hello contributors!\n\n" +
-		"I've collected a list of people who have interacted in some way with this pull request or any linked issues. I'll continue to update this list as activity occurs.\n\n";
+		"I've collected a list of people who have interacted in some way with this pull request or any linked issues. There's a few useful formats included below, and I'll continue to update this list as activity occurs.\n\n";
 
 		if ( contributorsList['unlinked'].length > 0 ) {
 			commentMessage += "## Unlinked Accounts\n\n" +
 				"It appears there are some GitHub contributors participating here that have not linked their WordPress.org accounts.\n\n" +
 				"@" + contributorsList['unlinked'].join(', @') + ": Thank you for your contribution to this repository!\n\n" +
-				"The WordPress project gives contributors attribution through the [WordPress.org Credits API](https://api.wordpress.org/core/credits/1.1/). However, attribution can only be given to a WordPress.org account." +
+				"The WordPress project gives contributors attribution through the [WordPress.org Credits API](https://api.wordpress.org/core/credits/1.1/). However, attribution can only be given to a WordPress.org account.\n\n" +
 				"Please take a moment to connect your GitHub and WordPress.org accounts when you have a moment so that your contribution can be properly recognized. You'll find [step by step instructions on the Making WordPress Core blog](https://make.wordpress.org/core/2020/03/19/associating-github-accounts-with-wordpress-org-profiles/).\n\n";
 		}
 
-		commentMessage += "**Reminder: giving props is mandatory for any repository under the WordPress organization if you are a project maintainer or committer**.\n\n" +
-		"Here is a contributor list formatted in a few ways.:\n\n" +
-		"## Core SVN\n\n" +
+		commentMessage += "## Core SVN\n\n" +
 		"If you're a Core Committer, use this list when committing to `wordpress-develop` in SVN:\n" +
 		"```\n" +
 		"Props: " + contributorsList['svn'].join(', ') + "." +
@@ -35447,6 +35445,7 @@ class GitHub {
 		contributorsList['coAuthored'].join("\n") +
 		"\n```\n\n" +
 		"**Important notes**:" +
+			"- Giving props is mandatory for this repository if you are a project maintainer or committer**.\n\n" +
 			"- The list of `Co-Authored-By:` trailers must be preceded by a blank line.\n" +
 			"- Usernames must not start with an `@`.\n" +
 			"- Nothing can come after the `Co-Authored-By:` trailers.\n" +
