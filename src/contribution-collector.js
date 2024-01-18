@@ -104,7 +104,7 @@ export async function getContributorsList() {
 		.forEach((comment) => contributors.commenters.add(comment.author.login));
 
 	core.debug('Commenters:');
-	core.debug(contributors);
+	core.debug(contributors.commenters);
 
 	// Process reporters and commenters for linked issues.
 	for (const linkedIssue of contributorData.closingIssuesReferences.nodes) {
