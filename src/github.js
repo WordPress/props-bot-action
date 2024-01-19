@@ -141,7 +141,7 @@ export default class GitHub {
 		if ( contributorsList['unlinked'].length > 0 ) {
 			commentMessage += "## Unlinked Accounts\n\n" +
 				"The following contributors have not linked their GitHub and WordPress.org accounts: @" + contributorsList['unlinked'].join(', @') + ".\n\n" +
-				"Please [read how to link your accounts](https://make.wordpress.org/core/2020/03/19/associating-github-accounts-with-wordpress-org-profiles/) here to ensure your work is properly credited in WordPress releases.\n\n";
+				"Please [read how to link your accounts](https://make.wordpress.org/core/2020/03/19/associating-github-accounts-with-wordpress-org-profiles/) to ensure your work is properly credited in WordPress releases.\n\n";
 		}
 
 		commentMessage += "## Core SVN\n\n" +
