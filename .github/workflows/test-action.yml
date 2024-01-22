@@ -3,7 +3,7 @@ name: Test the Action
 on:
   push:
     branches:
-      - main
+      - 'trunk'
       - 'releases/*'
   pull_request:
   pull_request_review:
