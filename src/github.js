@@ -136,12 +136,12 @@ export default class GitHub {
 			issue_number: prNumber,
 		};
 
-		let commentMessage = "The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs, or manually ask me to refresh this list by adding the `props-bot` label.\n\n";
+		let commentMessage = "The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label.\n\n";
 
 		if ( contributorsList['unlinked'].length > 0 ) {
 			commentMessage += "## Unlinked Accounts\n\n" +
 				"The following contributors have not linked their GitHub and WordPress.org accounts: @" + contributorsList['unlinked'].join(', @') + ".\n\n" +
-				"Please [read how to link your accounts](https://make.wordpress.org/core/2020/03/19/associating-github-accounts-with-wordpress-org-profiles/) to ensure your work is properly credited in WordPress releases.\n\n";
+				"Contributors, please [read how to link your accounts](https://make.wordpress.org/core/2020/03/19/associating-github-accounts-with-wordpress-org-profiles/) to ensure your work is properly credited in WordPress releases.\n\n";
 		}
 
 		commentMessage += "## Core SVN\n\n" +
