@@ -9,7 +9,13 @@ on:
 
 jobs:
   # Runs the unit test suite.
-  units:
+  #
+  # Performs the following steps:
+  # - Checks out the repository.
+  # - Sets up Node.js.
+  # - Installs npm dependencies.
+  # - Runs the unit tests.
+  unit-tests:
     name: Run unit tests
     runs-on: ubuntu-latest
 

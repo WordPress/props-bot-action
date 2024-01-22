@@ -16,6 +16,10 @@ on:
 
 jobs:
   # Tests that the Action works as expected.
+  #
+  # Performs the following steps:
+  # - Checks out the repository.
+  # - Runs the Action.
   test:
     name: Test the Action
     runs-on: ubuntu-latest

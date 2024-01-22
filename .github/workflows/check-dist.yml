@@ -1,4 +1,4 @@
-# Ensures `index.js` in the `dist` folder contains all source changes.
+
 name: Check built files
 
 on:
@@ -13,6 +13,14 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Ensures versioned `dist` folder contains all source code changes.
+  #
+  # Performs the following steps:
+  # - Checks out the repository.
+  # - Sets up Node.js.
+  # - Installs npm dependencies.
+  # - Runs the build script.
+  # - Compares the build script results with versioned files.
   check-dist:
     name: Confirm all changes are in built files
     runs-on: ubuntu-latest
