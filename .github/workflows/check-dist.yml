@@ -1,14 +1,9 @@
-# `dist/index.js` is a special file in Actions.
-# When you reference an action with `uses:` in a workflow,
-# `index.js` is the code that will run.
-# For our project, we generate this file through a build process from other source files.
-# We need to make sure the checked-in `index.js` actually matches what we expect it to be.
-name: Check dist/
+name: Check built files
 
 on:
   push:
     branches:
-      - main
+      - 'trunk'
     paths-ignore:
       - '**.md'
   pull_request:
@@ -17,21 +12,32 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Ensures versioned `dist` folder contains all source code changes.
+  #
+  # Performs the following steps:
+  # - Checks out the repository.
+  # - Sets up Node.js.
+  # - Installs npm dependencies.
+  # - Runs the build script.
+  # - Compares the build script results with versioned files.
   check-dist:
+    name: Confirm all changes are in built files
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Set up Node.js
         uses: actions/setup-node@b39b52d1213e96004bfcb1c61a8a6fa8ab84f3e8 # v4.0.1
         with:
           node-version-file: '.nvmrc'
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Rebuild the dist/ directory
+      - name: Run build scripts
         run: npm run prepare
 
       - name: Compare the expected and actual dist/ directories
@@ -41,11 +47,3 @@ jobs:
             git diff
             exit 1
           fi
-        id: diff
-
-      # If index.js was different than expected, upload the expected version as an artifact
-      - uses: actions/upload-artifact@1eb3cb2b3e0f29609092a73eb033bb759a334595 # v4.1.0
-        if: ${{ failure() && steps.diff.conclusion == 'failure' }}
-        with:
-          name: dist
-          path: dist/
