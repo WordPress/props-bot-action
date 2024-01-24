@@ -35397,13 +35397,16 @@ class GitHub {
 	 * - If a comment already exists, it will be updated.
 	 *
 	 * @param {Object} context The GitHub context.
-	 * @param {string} contributorsList The list of contributors.
+	 * @param {array} contributorsList The list of contributors.
 	 */
 	async commentProps({ context, contributorsList }) {
 		if (!contributorsList) {
-			core.info("No contributors list provided.");
+			core.info("No contributors were provided.");
 			return;
 		}
+
+		core.debug( "Contributor list received:" );
+		core.debug( contributorsList );
 
 		let prNumber = context.payload?.pull_request?.number;
 		if ( 'issue_comment' === context.eventName ) {
@@ -35417,15 +35420,34 @@ class GitHub {
 			issue_number: prNumber,
 		};
 
-		const commentMessage =
-		"Here is a list of everyone that appears to have contributed to this PR and any linked issues:\n\n" +
+		let commentMessage = "The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label.\n\n";
+
+		if ( contributorsList['unlinked'].length > 0 ) {
+			commentMessage += "## Unlinked Accounts\n\n" +
+				"The following contributors have not linked their GitHub and WordPress.org accounts: @" + contributorsList['unlinked'].join(', @') + ".\n\n" +
+				"Contributors, please [read how to link your accounts](https://make.wordpress.org/core/2020/03/19/associating-github-accounts-with-wordpress-org-profiles/) to ensure your work is properly credited in WordPress releases.\n\n";
+		}
+
+		commentMessage += "## Core SVN\n\n" +
+		"If you're a Core Committer, use this list when committing to `wordpress-develop` in SVN:\n" +
 		"```\n" +
-		contributorsList +
-		"\n```";
+		"Props: " + contributorsList['svn'].join(', ') + "." +
+		"\n```\n\n" +
+		"## GitHub Merge commits\n\n" +
+		"If you're merging code through a pull request on GitHub, copy and paste the following into the bottom of the merge commit message.\n\n" +
+		"```\n";
+
+		if ( contributorsList['unlinked'].length > 0 ) {
+			commentMessage += "Unlinked contributors: " + contributorsList['unlinked'].join(', ') + ".\n\n";
+		}
+
+		commentMessage += contributorsList['coAuthored'].join("\n") +
+		"\n```\n\n" +
+		"**To understand the WordPress project's expectations around crediting contributors, please [review the core handbook](https://make.wordpress.org/core/handbook/).**\n";
 
 		const comment = {
 			...commentInfo,
-			body: commentMessage + "\n\n<sub>props-bot-action</sub>",
+			body: commentMessage,
 		};
 
 		const comments = (await this.octokit.rest.issues.listComments(commentInfo))
@@ -35433,7 +35455,7 @@ class GitHub {
 		for (const currentComment of comments) {
 			if (
 				currentComment.user.type === "Bot" &&
-				/<sub>[\s\n]*props-bot-action/.test(currentComment.body)
+				currentComment.body.includes( 'The following accounts have interacted with this PR and/or linked issues.' )
 			) {
 				commentId = currentComment.id;
 				break;
@@ -37805,8 +37827,13 @@ async function getContributorsList() {
 		core.debug(githubUsers);
 	}
 
+	// List to return from the function.
+	const contributorLists = [];
+	contributorLists['github'] = [];
+
 	// Collect WordPress.org usernames
 	const wpOrgData = await getWPOrgData(githubUsers);
+	contributorLists['svn'] = [];
 
 	core.debug('WordPress.org raw data:');
 	core.debug(wpOrgData);
@@ -37818,28 +37845,25 @@ async function getContributorsList() {
 			wpOrgData[contributor] !== false
 		) {
 			userData[contributor].dotOrg = wpOrgData[contributor].slug;
+			contributorLists['svn'].push(wpOrgData[contributor].slug);
 		}
 	});
 
-	return contributorTypes
+	contributorLists['coAuthored'] = [];
+	contributorLists['unlinked'] = [];
+
+	contributorTypes
 		.map((priority) => {
 			// Skip an empty set of contributors.
 			if (contributors[priority].length === 0) {
 				return [];
 			}
 
-			// Add a header for each section.
-			const header =
-        "# " + priority.replace(/^./, (char) => char.toUpperCase()) + "\n";
-
-			// Generate each props entry, and join them into a single string.
-			return (
-				header +
 			[...contributors[priority]]
 				.map((username) => {
 					if ('unlinked' == priority) {
 						core.debug( 'Unlinked contributor: ' + username );
-						return `Unlinked contributor: ${username}`;
+						return;
 					}
 
 					const { dotOrg } = userData[username];
@@ -37849,17 +37873,18 @@ async function getContributorsList() {
 							"dotOrg"
 						)
 					) {
-						contributors.unlinked.add(username);
+						contributorLists['unlinked'].push(username);
 						return;
 					}
 
-					return `Co-Authored-By: ${username} <${dotOrg}@git.wordpress.org>`;
+					return contributorLists['coAuthored'].push( `Co-Authored-By: ${username} <${dotOrg}@git.wordpress.org>` );
 				})
-				.filter((el) => el)
-				.join("\n")
-			);
-		})
-		.join("\n\n");
+				.filter((el) => el);
+		});
+
+	core.debug( contributorLists );
+
+	return contributorLists;
 }
 
 /**
