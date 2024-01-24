@@ -1,0 +1,28 @@
+name: Test the Action
+
+on:
+  pull_request:
+  pull_request_review:
+    types:
+      - submitted
+  pull_request_review_comment:
+    types:
+      - created
+      - deleted
+
+jobs:
+  # Tests that the Action works as expected.
+  #
+  # Performs the following steps:
+  # - Checks out the repository.
+  # - Runs the Action.
+  test:
+    name: Test the Action
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+    - name: Run the Action
+      uses: ./
