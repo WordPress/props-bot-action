@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a bug with the WordPress Props Bot.
+labels: ['[Type] Bug']
+assignees:
+  - desrosj
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to improve the overall contributor experience by filling out this bug report!
+  - type: textarea
+    attributes:
+      label: Description
+      description: Please write a brief description of the bug, including what you expect to happen versus what is currently happening.
+      placeholder: |
+        Feature '...' is not working properly. I expect '...' to happen, but '...' happens instead
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Step-by-step reproduction instructions
+      description: Please write the steps needed to reproduce the bug.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. Scroll down to '...'
+    validations:
+      required: true
+  - type: input
+    attributed:
+      label: Version
+      description: |
+        Please include the version of the action you are using. This can be a major version (v1), a specific version (v1.2.3), or a specific SHA value.
+      placeholder: v1
+      validation:
+        required: true
+  - type: input
+    attributes:
+      label: Workflow file
+      description: |
+        Please include a link to your GitHub Actions workflow file.
+      placeholder: https://github.com/WordPress/wordpress-develop
+      validations:
+        required: false
+  - type: input
+    attributes:
+      label: Link
+      description: |
+        Please include a link to a GitHub pull request run showing the issue.
+      placeholder: https://github.com/WordPress/wordpress-develop
+      validations:
+        required: false
