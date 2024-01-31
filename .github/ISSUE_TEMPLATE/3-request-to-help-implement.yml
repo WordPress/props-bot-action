@@ -9,6 +9,7 @@ body:
       value: |
         If you maintain a repository or project and need help implementing this Action, fill out the request below.
         Receiving help is not guaranteed.
+
   - type: input
     attributes:
       label: Repository
@@ -17,6 +18,7 @@ body:
       placeholder: https://github.com/WordPress/wordpress-develop
     validations:
       required: false
+
   - type: textarea
     attributes:
       label: Project Description
