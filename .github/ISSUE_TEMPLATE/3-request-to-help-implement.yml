@@ -15,8 +15,8 @@ body:
       description: |
         Please include a link to the repository/project that you need assistance with.
       placeholder: https://github.com/WordPress/wordpress-develop
-      validations:
-        required: false
+    validations:
+      required: false
   - type: textarea
     attributes:
       label: Project Description
