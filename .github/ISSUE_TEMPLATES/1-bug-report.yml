@@ -11,19 +11,16 @@ body:
   - type: textarea
     attributes:
       label: Description
-      description: Please write a brief description of the bug, including what you expect to happen versus what is currently happening.
+      description: |
+        Please write a brief description of the bug, including what you expect to happen versus what is currently happening.
+        Provide as many detailed steps as needed for someone else to reliably reproduce the problem.
       placeholder: |
         Feature '...' is not working properly. I expect '...' to happen, but '...' happens instead
-    validations:
-      required: true
-  - type: textarea
-    attributes:
-      label: Step-by-step reproduction instructions
-      description: Please write the steps needed to reproduce the bug.
-      placeholder: |
-        1. Go to '...'
-        2. Click on '...'
-        3. Scroll down to '...'
+        To see the issue:
+        - 1. Step 1
+        - 2. Step 2.
+        - 3. Step.... so on.
+
     validations:
       required: true
   - type: input
