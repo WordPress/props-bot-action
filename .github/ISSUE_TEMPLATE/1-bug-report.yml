@@ -8,6 +8,7 @@ body:
     attributes:
       value: |
         Thank you for taking the time to improve the overall contributor experience by filling out this bug report!
+
   - type: textarea
     attributes:
       label: Description
@@ -22,6 +23,7 @@ body:
         - 3. Step.... so on.
     validations:
       required: true
+
   - type: input
     attributes:
       label: Version
@@ -29,21 +31,23 @@ body:
         Please include the version of the action you are using. This can be a major version (v1), a specific version (v1.2.3), or a specific SHA value.
         This can be found in the `uses: WordPress/props-bot-action` line after the `@` symbol.
       placeholder: v1
-      validation:
-        required: true
+    validations:
+      required: true
+
   - type: input
     attributes:
       label: Workflow file
       description: |
         Please include a link to your GitHub Actions workflow file.
       placeholder: https://github.com/WordPress/wordpress-develop/blob/trunk/.github/workflows/props-bot.yml
-      validations:
-        required: false
+    validations:
+      required: false
+
   - type: input
     attributes:
       label: Link
       description: |
         Please include a link to a GitHub pull request run showing the issue.
       placeholder: https://github.com/WordPress/wordpress-develop/pull/5990
-      validations:
-        required: false
+    validations:
+      required: false
