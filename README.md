@@ -5,7 +5,7 @@
 
 This GitHub Action Helps with collecting contributors associated with a pull request by commenting with a formatted list of contributors.
 
-For a full breakdown of the project's Props policies, please consult the [Making WordPress Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).
+For a full breakdown of the WordPress project's Props best practices, please consult the [Making WordPress Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).
 
 ## Configuration
 
