@@ -33,5 +33,5 @@ body:
       description: |
         Please include a link to the repository/project that stands to benefit from this feature.
       placeholder: https://github.com/WordPress/wordpress-develop
-      validations:
-        required: false
+    validations:
+      required: false

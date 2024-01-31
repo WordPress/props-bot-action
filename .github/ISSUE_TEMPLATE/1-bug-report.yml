@@ -20,11 +20,10 @@ body:
         - 1. Step 1
         - 2. Step 2.
         - 3. Step.... so on.
-
     validations:
       required: true
   - type: input
-    attributed:
+    attributes:
       label: Version
       description: |
         Please include the version of the action you are using. This can be a major version (v1), a specific version (v1.2.3), or a specific SHA value.
