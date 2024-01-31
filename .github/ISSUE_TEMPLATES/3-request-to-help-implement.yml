@@ -1,0 +1,25 @@
+name: Request to Help Implement
+description: Request help setting up this action in a repository/project that you help maintain.
+labels: ['[Type] Help Request']
+assignees:
+  - desrosj
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If you maintain a repository or project and need help implementing this Action, fill out the request below.
+        Receiving help is not guaranteed.
+  - type: input
+    attributes:
+      label: Repository
+      description: |
+        Please include a link to the repository/project that you need assistance with.
+      placeholder: https://github.com/WordPress/wordpress-develop
+      validations:
+        required: false
+  - type: textarea
+    attributes:
+      label: Project Description
+      description: Please write a brief description of the project and why it's important to track contributions in the "WordPress-flavor".
+    validations:
+      required: true
