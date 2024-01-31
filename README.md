@@ -18,6 +18,6 @@ For a full breakdown of the project's Props policies, please consult the [Making
 
 To get started, copy and commit the [`example-props-bot.yml` file](https://github.com/WordPress/props-bot-action/blob/trunk/example-props-bot.yml) into the `.github/workflows` directory of your project's repository.
 
-The example file is generously documented, making it easy to implement and adjusted to suit the needs of your project.
+The example file is generously documented so it can be implemented and adjusted to suit the needs of your project.
 
 If you need help implementing, you [can fill out a request for help](https://github.com/WordPress/props-bot-action/issues/new?assignees=desrosj&labels=%5BType%5D+Help+Request&projects=&template=3-request-to-help-implement.yml).
