@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: General Help Request
+    url: https://wordpress.org/support/forums
+    about: For general help requests, create a new topic in the Fixing WordPress support forum
+  - name: Security Vulnerabilities
+    url: https://wordpress.org/security
+    about: Please practice responsible disclosure of security vulnerabilities following the project's policies as outlined in the security whitepaper.
