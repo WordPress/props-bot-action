@@ -14,7 +14,7 @@ body:
       label: Repository
       description: |
         Please include a link to the repository/project that you need assistance with.
-      placeholder: https://github.com/WordPress/wordpress-develop/blob/trunk/.github/workflows/props-bot.yml
+      placeholder: https://github.com/WordPress/wordpress-develop
       validations:
         required: false
   - type: textarea

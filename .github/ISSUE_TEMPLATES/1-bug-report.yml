@@ -37,7 +37,7 @@ body:
       label: Workflow file
       description: |
         Please include a link to your GitHub Actions workflow file.
-      placeholder: https://github.com/WordPress/wordpress-develop
+      placeholder: https://github.com/WordPress/wordpress-develop/blob/trunk/.github/workflows/props-bot.yml
       validations:
         required: false
   - type: input
@@ -45,6 +45,6 @@ body:
       label: Link
       description: |
         Please include a link to a GitHub pull request run showing the issue.
-      placeholder: https://github.com/WordPress/wordpress-develop
+      placeholder: https://github.com/WordPress/wordpress-develop/pull/5990
       validations:
         required: false
