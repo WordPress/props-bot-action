@@ -61,7 +61,7 @@ jobs:
     if: |
       contains( fromJSON( '["pull_request_review", "pull_request_review_comment"]' ), github.event_name ) ||
       ( github.event_name == 'issue_comment' && github.event.issue.pull_request ) ||
-      github.event.action != 'labeled' ||
+      github.event_name == 'pull_request' && github.event.action != 'labeled' ||
       'props-bot' == github.event.label.name
 
     steps:
