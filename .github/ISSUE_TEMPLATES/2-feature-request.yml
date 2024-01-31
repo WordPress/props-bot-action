@@ -8,7 +8,7 @@ body:
     attributes:
       value: |
         Thank you for taking the time to submit this feature request! Keep in mind, there's no promise that all feature requests will be accepted.
-        This action has a specific purpose, make tracking all contributions the WordPress project on Github easier to track collect in an automated way.
+        This action has a specific purpose, to make tracking all contributions to the WordPress project on GitHub easier to collect in an automated way.
   - type: textarea
     attributes:
       label: Problem
