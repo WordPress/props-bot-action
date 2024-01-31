@@ -14,6 +14,6 @@ This GitHub Action Helps with collecting contributors associated with a pull req
 
 ## Example Workflow File
 
-To get started, copy and commit the `example-props-bot.yml` file into the `.github/workflows` directory in your project's repository.
+To get started, copy and commit the [`example-props-bot.yml` file](https://github.com/WordPress/props-bot-action/blob/trunk/example-props-bot.yml) into the `.github/workflows` directory in your project's repository.
 
 The example file is generously documented so it can be adjusted to suit the needs of your project.
