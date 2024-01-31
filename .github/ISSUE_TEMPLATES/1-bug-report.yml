@@ -28,6 +28,7 @@ body:
       label: Version
       description: |
         Please include the version of the action you are using. This can be a major version (v1), a specific version (v1.2.3), or a specific SHA value.
+        This can be found in the `uses: WordPress/props-bot-action` line after the `@` symbol.
       placeholder: v1
       validation:
         required: true
