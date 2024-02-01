@@ -35429,9 +35429,9 @@ class GitHub {
 		}
 
 		commentMessage += "## Core SVN\n\n" +
-		"If you're a Core Committer, use this list when committing to `wordpress-develop` in SVN:\n" +
+		"If you're a Core Committer, make sure these usernames are included in the props list when committing to `wordpress-develop` in SVN:\n" +
 		"```\n" +
-		"Props: " + contributorsList['svn'].join(', ') + "." +
+		contributorsList['svn'].join(', ') + "." +
 		"\n```\n\n" +
 		"## GitHub Merge commits\n\n" +
 		"If you're merging code through a pull request on GitHub, copy and paste the following into the bottom of the merge commit message.\n\n" +
