@@ -37877,7 +37877,7 @@ async function getContributorsList() {
 						return;
 					}
 
-					return contributorLists['coAuthored'].push( `Co-Authored-By: ${username} <${dotOrg}@git.wordpress.org>` );
+					return contributorLists['coAuthored'].push( `Co-authored-by: ${username} <${dotOrg}@git.wordpress.org>` );
 				})
 				.filter((el) => el);
 		});
