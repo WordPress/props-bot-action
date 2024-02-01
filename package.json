@@ -24,7 +24,7 @@
     "JavaScript"
   ],
   "author": "The WordPress Contributors",
-  "license": "GPL-2.0-or-later",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/WordPress/props-bot/issues"
   },
