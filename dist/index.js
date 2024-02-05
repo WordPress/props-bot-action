@@ -35318,8 +35318,8 @@ class GitHub {
 	async getContributorData({ owner, repo, prNumber }) {
 		core.info('Gathering contributor list.');
 
-		const data = await this.octokit.graphql(
-			`query($owner:String!, $name:String!, $prNumber:Int!) {
+		const data = await this.octokit.graphql.paginate(
+			`query paginate($cursor: String, $owner:String!, $name:String!, $prNumber:Int!) {
 				repository(owner:$owner, name:$name) {
 					pullRequest(number:$prNumber) {
 						commits(first: 100) {
@@ -35337,6 +35337,10 @@ class GitHub {
 									}
 								}
 							}
+							pageInfo {
+								hasNextPage
+								endCursor
+							}
 						}
 						reviews(first: 100) {
 							nodes {
@@ -35344,12 +35348,20 @@ class GitHub {
 									login
 								}
 							}
+							pageInfo {
+								hasNextPage
+								endCursor
+							}
 						}
 						comments(first: 100) {
 							nodes {
 								author {
 									login
 								}
+							}
+							pageInfo {
+								hasNextPage
+								endCursor
 							}
 						}
 						closingIssuesReferences(first:100){
@@ -35362,6 +35374,10 @@ class GitHub {
 										author {
 											login
 										}
+									}
+									pageInfo {
+										hasNextPage
+										endCursor
 									}
 								}
 							}
