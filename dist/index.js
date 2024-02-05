@@ -35454,8 +35454,6 @@ class GitHub {
 			this.octokit.rest.issues.listComments,
 			commentInfo
 		)) {
-			console.debug( response );
-			core.info( response );
 			for (const currentComment of response.data) {
 				if (
 					currentComment.user.type === "Bot" &&
@@ -35467,16 +35465,18 @@ class GitHub {
 				}
 			}
 
-			if ( commentId ) {
+			if (commentId) {
 				break;
 			}
 		}
 
 		if (commentId) {
 			core.info(`Updating previous comment #${commentId}`);
+			return;
 			try {
 				await this.octokit.rest.issues.updateComment({
-					...context.repo,
+					owner: context.repo.owner,
+					repo: context.repo.repo,
 					comment_id: commentId,
 					body: comment.body,
 				});
