@@ -1,10 +1,11 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
+import * as paginateGraphQL from "@octokit/plugin-paginate-graphql";
 
 export default class GitHub {
 	constructor() {
 		const token = core.getInput("token") || process.env.GITHUB_TOKEN || "";
-		this.octokit = github.getOctokit(token);
+		this.octokit = github.getOctokit(token).plugin(paginateGraphQL);
 	}
 
 	/**
