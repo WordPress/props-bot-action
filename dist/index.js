@@ -35451,7 +35451,7 @@ class GitHub {
 		};
 
 		for await (const response of this.octokit.paginate.iterator(
-			this.octokit.rest.issues.listForRepo,
+			this.octokit.rest.issues.listComments,
 			commentInfo
 		)) {
 			console.debug( response );
