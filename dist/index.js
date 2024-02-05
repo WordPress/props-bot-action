@@ -35415,9 +35415,9 @@ class GitHub {
 
 		let commentId;
 		const commentInfo = {
-			owner: context.repo.owner,
-			repo: context.repo.repo,
-			issue_number: prNumber,
+			owner: 'WordPress',
+			repo: 'gutenberg',
+			issue_number: 57841,
 		};
 
 		let commentMessage = "The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label.\n\n";
