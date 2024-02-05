@@ -230,7 +230,7 @@ export async function getContributorsList() {
  * @return {boolean} true if the username should be skipped. false otherwise.
  */
 function skipUser(username) {
-	const skippedUsers = ["github-actions"];
+	const skippedUsers = ["github-actions", "dependabot[bot]"];
 
 	if (
 		-1 === skippedUsers.indexOf(username) &&
