@@ -5,7 +5,8 @@ import * as paginateGraphQL from "@octokit/plugin-paginate-graphql";
 export default class GitHub {
 	constructor() {
 		const token = core.getInput("token") || process.env.GITHUB_TOKEN || "";
-		this.octokit = github.getOctokit(token).plugin(paginateGraphQL);
+		this.octokit = github.getOctokit(token);
+		this.octokit.plugin(paginateGraphQL);
 	}
 
 	/**

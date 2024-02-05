@@ -35510,7 +35510,8 @@ var dist_node = __nccwpck_require__(5883);
 class GitHub {
 	constructor() {
 		const token = core.getInput("token") || process.env.GITHUB_TOKEN || "";
-		this.octokit = github.getOctokit(token).plugin(dist_node);
+		this.octokit = github.getOctokit(token);
+		this.octokit.plugin(dist_node);
 	}
 
 	/**
