@@ -43,6 +43,10 @@ export default class GitHub {
 	async getContributorData({ owner, repo, prNumber }) {
 		core.info('Gathering contributor list.');
 
+		const ownerTest      = 'WordPress';
+		const repoTest      = 'gutenberg';
+		const prNumberTest = 57841;
+
 		const data = await this.octokit.graphql.paginateGraphql(
 			`query($owner:String!, $name:String!, $prNumber:Int!, $cursor: String) {
 				repository(owner:$owner, name:$name) {
@@ -98,7 +102,7 @@ export default class GitHub {
 					}
 				}
 			}`,
-			{ owner, name: repo, prNumber }
+			{ ownerTest, name: repoTest, prNumberTest }
 		);
 
 		return data?.repository?.pullRequest;

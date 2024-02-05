@@ -2868,6 +2868,225 @@ function withCustomRequest(customRequest) {
 
 /***/ }),
 
+/***/ 5883:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// pkg/dist-src/index.js
+var dist_src_exports = {};
+__export(dist_src_exports, {
+  paginateGraphql: () => paginateGraphql
+});
+module.exports = __toCommonJS(dist_src_exports);
+var import_core3 = __nccwpck_require__(6762);
+
+// pkg/dist-src/errors.js
+var generateMessage = (path, cursorValue) => `The cursor at "${path.join(
+  ","
+)}" did not change its value "${cursorValue}" after a page transition. Please make sure your that your query is set up correctly.`;
+var MissingCursorChange = class extends Error {
+  constructor(pageInfo, cursorValue) {
+    super(generateMessage(pageInfo.pathInQuery, cursorValue));
+    this.pageInfo = pageInfo;
+    this.cursorValue = cursorValue;
+    this.name = "MissingCursorChangeError";
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, this.constructor);
+    }
+  }
+};
+var MissingPageInfo = class extends Error {
+  constructor(response) {
+    super(
+      `No pageInfo property found in response. Please make sure to specify the pageInfo in your query. Response-Data: ${JSON.stringify(
+        response,
+        null,
+        2
+      )}`
+    );
+    this.response = response;
+    this.name = "MissingPageInfo";
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, this.constructor);
+    }
+  }
+};
+
+// pkg/dist-src/object-helpers.js
+var isObject = (value) => Object.prototype.toString.call(value) === "[object Object]";
+function findPaginatedResourcePath(responseData) {
+  const paginatedResourcePath = deepFindPathToProperty(
+    responseData,
+    "pageInfo"
+  );
+  if (paginatedResourcePath.length === 0) {
+    throw new MissingPageInfo(responseData);
+  }
+  return paginatedResourcePath;
+}
+var deepFindPathToProperty = (object, searchProp, path = []) => {
+  for (const key of Object.keys(object)) {
+    const currentPath = [...path, key];
+    const currentValue = object[key];
+    if (currentValue.hasOwnProperty(searchProp)) {
+      return currentPath;
+    }
+    if (isObject(currentValue)) {
+      const result = deepFindPathToProperty(
+        currentValue,
+        searchProp,
+        currentPath
+      );
+      if (result.length > 0) {
+        return result;
+      }
+    }
+  }
+  return [];
+};
+var get = (object, path) => {
+  return path.reduce((current, nextProperty) => current[nextProperty], object);
+};
+var set = (object, path, mutator) => {
+  const lastProperty = path[path.length - 1];
+  const parentPath = [...path].slice(0, -1);
+  const parent = get(object, parentPath);
+  if (typeof mutator === "function") {
+    parent[lastProperty] = mutator(parent[lastProperty]);
+  } else {
+    parent[lastProperty] = mutator;
+  }
+};
+
+// pkg/dist-src/extract-page-info.js
+var extractPageInfos = (responseData) => {
+  const pageInfoPath = findPaginatedResourcePath(responseData);
+  return {
+    pathInQuery: pageInfoPath,
+    pageInfo: get(responseData, [...pageInfoPath, "pageInfo"])
+  };
+};
+
+// pkg/dist-src/iterator.js
+var import_core = __nccwpck_require__(6762);
+
+// pkg/dist-src/page-info.js
+var isForwardSearch = (givenPageInfo) => {
+  return givenPageInfo.hasOwnProperty("hasNextPage");
+};
+var getCursorFrom = (pageInfo) => isForwardSearch(pageInfo) ? pageInfo.endCursor : pageInfo.startCursor;
+var hasAnotherPage = (pageInfo) => isForwardSearch(pageInfo) ? pageInfo.hasNextPage : pageInfo.hasPreviousPage;
+
+// pkg/dist-src/iterator.js
+var createIterator = (octokit) => {
+  return (query, initialParameters = {}) => {
+    let nextPageExists = true;
+    let parameters = { ...initialParameters };
+    return {
+      [Symbol.asyncIterator]: () => ({
+        async next() {
+          if (!nextPageExists)
+            return { done: true, value: {} };
+          const response = await octokit.graphql(
+            query,
+            parameters
+          );
+          const pageInfoContext = extractPageInfos(response);
+          const nextCursorValue = getCursorFrom(pageInfoContext.pageInfo);
+          nextPageExists = hasAnotherPage(pageInfoContext.pageInfo);
+          if (nextPageExists && nextCursorValue === parameters.cursor) {
+            throw new MissingCursorChange(pageInfoContext, nextCursorValue);
+          }
+          parameters = {
+            ...parameters,
+            cursor: nextCursorValue
+          };
+          return { done: false, value: response };
+        }
+      })
+    };
+  };
+};
+
+// pkg/dist-src/paginate.js
+var import_core2 = __nccwpck_require__(6762);
+
+// pkg/dist-src/merge-responses.js
+var mergeResponses = (response1, response2) => {
+  if (Object.keys(response1).length === 0) {
+    return Object.assign(response1, response2);
+  }
+  const path = findPaginatedResourcePath(response1);
+  const nodesPath = [...path, "nodes"];
+  const newNodes = get(response2, nodesPath);
+  if (newNodes) {
+    set(response1, nodesPath, (values) => {
+      return [...values, ...newNodes];
+    });
+  }
+  const edgesPath = [...path, "edges"];
+  const newEdges = get(response2, edgesPath);
+  if (newEdges) {
+    set(response1, edgesPath, (values) => {
+      return [...values, ...newEdges];
+    });
+  }
+  const pageInfoPath = [...path, "pageInfo"];
+  set(response1, pageInfoPath, get(response2, pageInfoPath));
+  return response1;
+};
+
+// pkg/dist-src/paginate.js
+var createPaginate = (octokit) => {
+  const iterator = createIterator(octokit);
+  return async (query, initialParameters = {}) => {
+    let mergedResponse = {};
+    for await (const response of iterator(
+      query,
+      initialParameters
+    )) {
+      mergedResponse = mergeResponses(mergedResponse, response);
+    }
+    return mergedResponse;
+  };
+};
+
+// pkg/dist-src/index.js
+function paginateGraphql(octokit) {
+  octokit.graphql;
+  return {
+    graphql: Object.assign(octokit.graphql, {
+      paginate: Object.assign(createPaginate(octokit), {
+        iterator: createIterator(octokit)
+      })
+    })
+  };
+}
+// Annotate the CommonJS export names for ESM import in node:
+0 && (0);
+
+
+/***/ }),
+
 /***/ 4193:
 /***/ ((module) => {
 
@@ -35281,14 +35500,27 @@ __nccwpck_require__.r(__webpack_exports__);
 var core = __nccwpck_require__(2186);
 // EXTERNAL MODULE: ./node_modules/@actions/github/lib/github.js
 var github = __nccwpck_require__(5438);
+// EXTERNAL MODULE: ./node_modules/@octokit/plugin-paginate-graphql/dist-node/index.js
+var dist_node = __nccwpck_require__(5883);
+// EXTERNAL MODULE: ./node_modules/@actions/github/lib/utils.js
+var utils = __nccwpck_require__(3030);
 ;// CONCATENATED MODULE: ./src/github.js
+
 
 
 
 class GitHub {
 	constructor() {
 		const token = core.getInput("token") || process.env.GITHUB_TOKEN || "";
-		this.octokit = github.getOctokit(token);
+		// Exit early if no token is provided.
+		if (token.length === 0) {
+			core.error("No GitHub token provided.");
+		}
+
+		// Create a new Octokit class instance with the paginateGraphql plugin.
+		this.octokitInstance = utils.GitHub.plugin(dist_node.paginateGraphql);
+		// Instantiate the Octokit class with the paginateGraphql plugin.
+		this.octokit = this.octokitInstance((0,utils.getOctokitOptions)(token));
 	}
 
 	/**
@@ -35318,8 +35550,12 @@ class GitHub {
 	async getContributorData({ owner, repo, prNumber }) {
 		core.info('Gathering contributor list.');
 
-		const data = await this.octokit.graphql(
-			`query($owner:String!, $name:String!, $prNumber:Int!) {
+		const ownerTest      = 'WordPress';
+		const repoTest      = 'gutenberg';
+		const prNumberTest = 57841;
+
+		const data = await this.octokit.graphql.paginateGraphql(
+			`query($owner:String!, $name:String!, $prNumber:Int!, $cursor: String) {
 				repository(owner:$owner, name:$name) {
 					pullRequest(number:$prNumber) {
 						commits(first: 100) {
@@ -35351,6 +35587,10 @@ class GitHub {
 									login
 								}
 							}
+							pageInfo {
+								hasNextPage
+								endCursor
+							}
 						}
 						closingIssuesReferences(first:100){
 							nodes {
@@ -35369,7 +35609,7 @@ class GitHub {
 					}
 				}
 			}`,
-			{ owner, name: repo, prNumber }
+			{ ownerTest, name: repoTest, prNumberTest }
 		);
 
 		return data?.repository?.pullRequest;
