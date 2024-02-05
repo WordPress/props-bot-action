@@ -35415,9 +35415,9 @@ class GitHub {
 
 		let commentId;
 		const commentInfo = {
-			owner: 'WordPress',
-			repo: 'gutenberg',
-			issue_number: 57841,
+			owner: context.repo.owner,
+			repo: context.repo.repo,
+			issue_number: prNumber,
 		};
 
 		let commentMessage = "The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label.\n\n";
@@ -35474,8 +35474,7 @@ class GitHub {
 
 			try {
 				await this.octokit.rest.issues.updateComment({
-					owner: context.repo.owner,
-					repo: context.repo.repo,
+					...context.repo,
 					comment_id: commentId,
 					body: comment.body,
 				});
