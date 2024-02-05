@@ -176,7 +176,8 @@ export default class GitHub {
 					currentComment.body.includes( 'The following accounts have interacted with this PR and/or linked issues.' )
 				) {
 					commentId = currentComment.id;
-					break;
+					core.info( 'Previous comment ID found: ' + commentId );
+					return;
 				}
 			}
 
@@ -184,9 +185,6 @@ export default class GitHub {
 				break;
 			}
 		}
-
-		core.info( 'Previous comment ID found: ' + commentId );
-		return;
 
 		if (commentId) {
 			core.info(`Updating previous comment #${commentId}`);
