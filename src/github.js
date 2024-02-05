@@ -176,8 +176,6 @@ export default class GitHub {
 					currentComment.body.includes( 'The following accounts have interacted with this PR and/or linked issues.' )
 				) {
 					commentId = currentComment.id;
-					core.info( 'Previous comment ID found: ' + commentId );
-					return;
 				}
 			}
 
@@ -188,7 +186,7 @@ export default class GitHub {
 
 		if (commentId) {
 			core.info(`Updating previous comment #${commentId}`);
-			return;
+
 			try {
 				await this.octokit.rest.issues.updateComment({
 					owner: context.repo.owner,
