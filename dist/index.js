@@ -35454,6 +35454,8 @@ class GitHub {
 			this.octokit.rest.issues.listForRepo,
 			commentInfo
 		)) {
+			console.debug( response );
+			core.info( response );
 			for (const currentComment of response.data) {
 				if (
 					currentComment.user.type === "Bot" &&
