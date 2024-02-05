@@ -176,6 +176,7 @@ export default class GitHub {
 					currentComment.body.includes( 'The following accounts have interacted with this PR and/or linked issues.' )
 				) {
 					commentId = currentComment.id;
+					break;
 				}
 			}
 
