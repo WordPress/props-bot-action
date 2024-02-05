@@ -202,7 +202,7 @@ export default class GitHub {
 
 		// No previous or edit comment failed.
 		if (!commentId) {
-			core.info("Creating new comment");
+			core.info("No previous comment found. Creating a new one.");
 			try {
 				await this.octokit.rest.issues.createComment(comment);
 			} catch (e) {
