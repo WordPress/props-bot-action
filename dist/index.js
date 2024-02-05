@@ -35450,20 +35450,28 @@ class GitHub {
 			body: commentMessage,
 		};
 
-		const comments = (await this.octokit.rest.issues.listComments(commentInfo))
-			.data;
-		for (const currentComment of comments) {
-			if (
-				currentComment.user.type === "Bot" &&
-				currentComment.body.includes( 'The following accounts have interacted with this PR and/or linked issues.' )
-			) {
-				commentId = currentComment.id;
+		for await (const response of this.octokit.paginate.iterator(
+			this.octokit.rest.issues.listComments,
+			commentInfo
+		)) {
+			for (const currentComment of response.data) {
+				if (
+					currentComment.user.type === "Bot" &&
+					currentComment.body.includes( 'The following accounts have interacted with this PR and/or linked issues.' )
+				) {
+					commentId = currentComment.id;
+					break;
+				}
+			}
+
+			if (commentId) {
 				break;
 			}
 		}
 
 		if (commentId) {
 			core.info(`Updating previous comment #${commentId}`);
+
 			try {
 				await this.octokit.rest.issues.updateComment({
 					...context.repo,
@@ -35478,7 +35486,7 @@ class GitHub {
 
 		// No previous or edit comment failed.
 		if (!commentId) {
-			core.info("Creating new comment");
+			core.info("No previous comment found. Creating a new one.");
 			try {
 				await this.octokit.rest.issues.createComment(comment);
 			} catch (e) {
