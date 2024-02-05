@@ -185,6 +185,9 @@ export default class GitHub {
 			}
 		}
 
+		core.info( 'Previous comment ID found: ' + commentId );
+		return;
+
 		if (commentId) {
 			core.info(`Updating previous comment #${commentId}`);
 			try {
