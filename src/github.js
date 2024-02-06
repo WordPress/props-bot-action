@@ -1,10 +1,12 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
+import * as paginateGraphQL from "@octokit/plugin-paginate-graphql";
 
 export default class GitHub {
 	constructor() {
 		const token = core.getInput("token") || process.env.GITHUB_TOKEN || "";
 		this.octokit = github.getOctokit(token);
+		this.octokit.plugin(paginateGraphQL);
 	}
 
 	/**
@@ -34,8 +36,8 @@ export default class GitHub {
 	async getContributorData({ owner, repo, prNumber }) {
 		core.info('Gathering contributor list.');
 
-		const data = await this.octokit.graphql(
-			`query($owner:String!, $name:String!, $prNumber:Int!) {
+		const data = await this.octokit.graphql.paginate(
+			`query paginate($cursor: String, $owner:String!, $name:String!, $prNumber:Int!) {
 				repository(owner:$owner, name:$name) {
 					pullRequest(number:$prNumber) {
 						commits(first: 100) {
@@ -53,6 +55,10 @@ export default class GitHub {
 									}
 								}
 							}
+							pageInfo {
+								hasNextPage
+								endCursor
+							}
 						}
 						reviews(first: 100) {
 							nodes {
@@ -60,12 +66,20 @@ export default class GitHub {
 									login
 								}
 							}
+							pageInfo {
+								hasNextPage
+								endCursor
+							}
 						}
 						comments(first: 100) {
 							nodes {
 								author {
 									login
 								}
+							}
+							pageInfo {
+								hasNextPage
+								endCursor
 							}
 						}
 						closingIssuesReferences(first:100){
@@ -78,6 +92,10 @@ export default class GitHub {
 										author {
 											login
 										}
+									}
+									pageInfo {
+										hasNextPage
+										endCursor
 									}
 								}
 							}
