@@ -10,7 +10,7 @@ export default class GitHub {
 
 		if ( formats.includes('all') ) {
 			this.format = ["git", "svn"];
-		} else if ( formats.includes('svn') || formats.incldues('git') ) {
+		} else if ( formats.includes('svn') || formats.includes('git') ) {
 			this.format = formats;
 		} else {
 			core.error( 'A valid props format was not provided.' );
