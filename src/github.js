@@ -6,7 +6,13 @@ export default class GitHub {
 		const token = core.getInput("token") || process.env.GITHUB_TOKEN || "";
 		this.octokit = github.getOctokit(token);
 
-		this.format = core.getMultilineInput("format") || ["all"];
+		const formats = core.getMultilineInput("format") || ["git"];
+
+		if ( formats.includes('all') ) {
+			this.format = ["git", "svn"];
+		} else {
+			this.format = formats;
+		}
 	}
 
 	/**
@@ -146,19 +152,19 @@ export default class GitHub {
 				"Contributors, please [read how to link your accounts](https://make.wordpress.org/core/2020/03/19/associating-github-accounts-with-wordpress-org-profiles/) to ensure your work is properly credited in WordPress releases.\n\n";
 		}
 
-		if ( this.format.indexOf('svn') >= 0 || this.format.indexOf('all') >= 0 ) {
-			if ( this.format.indexOf('git') >= 0 || this.format.indexOf('all') >= 0 ) {
+		if ( this.format.includes('svn') >= 0 ) {
+			if ( this.format.includes('git') >= 0 ) {
 				commentMessage += "## Core SVN\n\n";
 			}
 
-			commentMessage += "If you're a Core Committer, use this list when committing to `wordpress-develop` in SVN:\n" +
+			commentMessage += "Core Committers: Use this line as a base for the props when committing in SVN:\n" +
 				"```\n" +
-				"Props: " + contributorsList['svn'].join(', ') + "." +
+				"Props " + contributorsList['svn'].join(', ') + "." +
 				"\n```\n\n";
 		}
 
-		if ( this.format.indexOf('git') >= 0 || this.format.indexOf('all') >= 0 ) {
-			if ( this.format.indexOf('svn') >= 0 || this.format.indexOf('all') >= 0 ) {
+		if ( this.format.includes('git') >= 0 ) {
+			if ( this.format.includes('svn') >= 0 ) {
 				commentMessage += "## GitHub Merge commits\n\n";
 			}
 
