@@ -35289,6 +35289,8 @@ class GitHub {
 	constructor() {
 		const token = core.getInput("token") || process.env.GITHUB_TOKEN || "";
 		this.octokit = github.getOctokit(token);
+
+		const format = core.getInput("format") || "github";
 	}
 
 	/**
@@ -35428,22 +35430,28 @@ class GitHub {
 				"Contributors, please [read how to link your accounts](https://make.wordpress.org/core/2020/03/19/associating-github-accounts-with-wordpress-org-profiles/) to ensure your work is properly credited in WordPress releases.\n\n";
 		}
 
-		commentMessage += "## Core SVN\n\n" +
-		"Core Committers: Use this line as a base for the props when committing in SVN:\n" +
-		"```\n" +
-		"Props " + contributorsList['svn'].join(', ') + "." +
-		"\n```\n\n" +
-		"## GitHub Merge commits\n\n" +
-		"If you're merging code through a pull request on GitHub, copy and paste the following into the bottom of the merge commit message.\n\n" +
-		"```\n";
-
-		if ( contributorsList['unlinked'].length > 0 ) {
-			commentMessage += "Unlinked contributors: " + contributorsList['unlinked'].join(', ') + ".\n\n";
+		if ( this.format == 'svn' || this.format == 'both' ) {
+			commentMessage += "## Core SVN\n\n" +
+				"If you're a Core Committer, use this list when committing to `wordpress-develop` in SVN:\n" +
+				"```\n" +
+				"Props: " + contributorsList['svn'].join(', ') + "." +
+				"\n```\n\n";
 		}
 
-		commentMessage += contributorsList['coAuthored'].join("\n") +
-		"\n```\n\n" +
-		"**To understand the WordPress project's expectations around crediting contributors, please [review the Contributor Attribution page in the Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).**\n";
+		if ( this.format == 'github' || this.format == 'both' ) {
+			commentMessage += "## GitHub Merge commits\n\n" +
+				"If you're merging code through a pull request on GitHub, copy and paste the following into the bottom of the merge commit message.\n\n" +
+				"```\n";
+
+			if (contributorsList['unlinked'].length > 0) {
+				commentMessage += "Unlinked contributors: " + contributorsList['unlinked'].join(', ') + ".\n\n";
+			}
+
+			commentMessage += contributorsList['coAuthored'].join("\n") +
+				"\n```\n\n";
+		}
+
+		commentMessage += "**To understand the WordPress project's expectations around crediting contributors, please [review the Contributor Attribution page in the Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).**\n";
 
 		const comment = {
 			...commentInfo,
