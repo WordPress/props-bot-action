@@ -6,11 +6,15 @@ export default class GitHub {
 		const token = core.getInput("token") || process.env.GITHUB_TOKEN || "";
 		this.octokit = github.getOctokit(token);
 
-		const formats = core.getInput("format").replace(/ /g, '').split(',').map(function(value){
+		const formats = core.getInput("format").replace(/ /g, '').split(',').filter( value => {
 			return value.trim();
-		}) || ["git"];
+		});
 
-		if ( formats.includes('all') ) {
+
+		if ( formats.length === 0 ) {
+			this.format = [ "git" ];
+		}
+		else if ( formats.includes('all') ) {
 			this.format = ["git", "svn"];
 		} else if ( formats.includes('svn') || formats.includes('git') ) {
 			this.format = formats;
