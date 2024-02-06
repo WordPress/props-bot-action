@@ -6,7 +6,7 @@ export default class GitHub {
 		const token = core.getInput("token") || process.env.GITHUB_TOKEN || "";
 		this.octokit = github.getOctokit(token);
 
-		this.format = core.getInput("format") || "svn";
+		this.format = core.getMultilineInput("format") || ["all"];
 	}
 
 	/**
@@ -146,17 +146,23 @@ export default class GitHub {
 				"Contributors, please [read how to link your accounts](https://make.wordpress.org/core/2020/03/19/associating-github-accounts-with-wordpress-org-profiles/) to ensure your work is properly credited in WordPress releases.\n\n";
 		}
 
-		if ( this.format == 'svn' || this.format == 'both' ) {
-			commentMessage += "## Core SVN\n\n" +
-				"If you're a Core Committer, use this list when committing to `wordpress-develop` in SVN:\n" +
+		if ( this.format.includes('svn') || this.format.includes('all') ) {
+			if ( this.format.includes('git') || this.format.includes('all') ) {
+				commentMessage += "## Core SVN\n\n";
+			}
+
+			commentMessage += "If you're a Core Committer, use this list when committing to `wordpress-develop` in SVN:\n" +
 				"```\n" +
 				"Props: " + contributorsList['svn'].join(', ') + "." +
 				"\n```\n\n";
 		}
 
-		if ( this.format == 'github' || this.format == 'both' ) {
-			commentMessage += "## GitHub Merge commits\n\n" +
-				"If you're merging code through a pull request on GitHub, copy and paste the following into the bottom of the merge commit message.\n\n" +
+		if ( this.format.includes('git') || this.format.includes('all') ) {
+			if ( this.format.includes('svn') || this.format.includes('all') ) {
+				commentMessage += "## GitHub Merge commits\n\n";
+			}
+
+			commentMessage += "If you're merging code through a pull request on GitHub, copy and paste the following into the bottom of the merge commit message.\n\n" +
 				"```\n";
 
 			if (contributorsList['unlinked'].length > 0) {
