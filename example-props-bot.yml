@@ -72,12 +72,6 @@ jobs:
     steps:
       - name: Gather a list of contributors
         uses: WordPress/props-bot-action@trunk
-        # Optional arguments.
-#        with:
-#          # Allows a custom token to be passed.
-#          token: ${{ secrets.CUSTOM_PROPS_BOT_TOKEN }}
-#          # Specify the prop format to display. Default is `git`. Values should be comma separated.
-#          format: 'all'
 
       - name: Remove the props-bot label
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
