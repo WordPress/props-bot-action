@@ -10,10 +10,10 @@ For a full breakdown of the WordPress project's Props best practices, please con
 ## Configuration
 
 ### Required configurations
-| Key      | Default         | Description                                                                         |
-|----------|-----------------|-------------------------------------------------------------------------------------|
-| `token`  | `$GITHUB_TOKEN` | GitHub token with permission to comment on the pull request.                        |
-| `format` | `git`           | The style of contributor lists to include. Valid values are `svn`, `git`, or `all`. |
+| Key      | Default         | Description                                                                                                                             |
+|----------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------|
+| `token`  | `$GITHUB_TOKEN` | GitHub token with permission to comment on the pull request.                                                                            |
+| `format` | `git`           | The style of contributor lists to include. Accepted values are `svn`, `git`, or `all`, or any combination of those separated by commas. |
 
 ## Example Workflow File
 

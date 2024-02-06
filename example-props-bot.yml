@@ -76,7 +76,7 @@ jobs:
 #        with:
 #          # Allows a custom token to be passed.
 #          token: ${{ secrets.CUSTOM_PROPS_BOT_TOKEN }}
-#          # Uncomment to specify the prop format to display. Default is `git`.
+#          # Specify the prop format to display. Default is `git`. Values should be comma separated.
 #          format: 'all'
 
       - name: Remove the props-bot label
