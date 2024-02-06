@@ -35290,7 +35290,7 @@ class GitHub {
 		const token = core.getInput("token") || process.env.GITHUB_TOKEN || "";
 		this.octokit = github.getOctokit(token);
 
-		this.format = core.getInput("format") || "both";
+		this.format = core.getInput("format") || "svn";
 	}
 
 	/**
