@@ -146,8 +146,8 @@ export default class GitHub {
 				"Contributors, please [read how to link your accounts](https://make.wordpress.org/core/2020/03/19/associating-github-accounts-with-wordpress-org-profiles/) to ensure your work is properly credited in WordPress releases.\n\n";
 		}
 
-		if ( this.format.includes('svn') || this.format.includes('all') ) {
-			if ( this.format.includes('git') || this.format.includes('all') ) {
+		if ( this.format.indexOf('svn') >= 0 || this.format.indexOf('all') >= 0 ) {
+			if ( this.format.indexOf('git') >= 0 || this.format.indexOf('all') >= 0 ) {
 				commentMessage += "## Core SVN\n\n";
 			}
 
@@ -157,8 +157,8 @@ export default class GitHub {
 				"\n```\n\n";
 		}
 
-		if ( this.format.includes('git') || this.format.includes('all') ) {
-			if ( this.format.includes('svn') || this.format.includes('all') ) {
+		if ( this.format.indexOf('git') >= 0 || this.format.indexOf('all') >= 0 ) {
+			if ( this.format.indexOf('svn') >= 0 || this.format.indexOf('all') >= 0 ) {
 				commentMessage += "## GitHub Merge commits\n\n";
 			}
 
