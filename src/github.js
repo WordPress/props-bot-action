@@ -6,16 +6,15 @@ export default class GitHub {
 		const token = core.getInput("token") || process.env.GITHUB_TOKEN || "";
 		this.octokit = github.getOctokit(token);
 
-		const formats = core.getMultilineInput("format") || ["git"];
+		const formats = core.getInput("format") || ["git"];
 
 		if ( formats.includes('all') ) {
 			this.format = ["git", "svn"];
-		} else {
+		} else if ( formats.includes('svn') || formats.incldues('git') ) {
 			this.format = formats;
+		} else {
+			core.error( 'A valid props format was not provided.' );
 		}
-
-		core.debug('Formats requested:');
-		core.debug(this.format);
 	}
 
 	/**
@@ -134,6 +133,9 @@ export default class GitHub {
 
 		core.debug( "Contributor list received:" );
 		core.debug( contributorsList );
+
+		core.debug('Formats requested:');
+		core.debug(this.format);
 
 		let prNumber = context.payload?.pull_request?.number;
 		if ( 'issue_comment' === context.eventName ) {
