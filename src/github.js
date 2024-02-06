@@ -136,7 +136,7 @@ export default class GitHub {
 		core.debug( "Contributor list received:" );
 		core.debug( contributorsList );
 
-		core.debug('Formats requested:');
+		core.debug( 'Formats requested:' );
 		core.debug(this.format);
 
 		let prNumber = context.payload?.pull_request?.number;
