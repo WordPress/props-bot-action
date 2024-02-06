@@ -35292,7 +35292,7 @@ class GitHub {
 
 		const formats = core.getInput("format").replace(/ /g, '').split(',').map(function(value){
 			return value.trim();
-		}) || "git";
+		}) || ["git"];
 
 		if ( formats.includes('all') ) {
 			this.format = ["git", "svn"];
