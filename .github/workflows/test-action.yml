@@ -27,5 +27,4 @@ jobs:
     - name: Run the Action
       uses: ./
       with:
-        format:
-          - 'all'
+        format: 'all'

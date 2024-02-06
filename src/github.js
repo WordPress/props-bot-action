@@ -6,7 +6,9 @@ export default class GitHub {
 		const token = core.getInput("token") || process.env.GITHUB_TOKEN || "";
 		this.octokit = github.getOctokit(token);
 
-		const formats = core.getInput("format") || ["git"];
+		const formats = core.getInput("format").split(',').map(function(value){
+			return value.trim();
+		}) || "git";
 
 		if ( formats.includes('all') ) {
 			this.format = ["git", "svn"];
