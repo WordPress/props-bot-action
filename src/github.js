@@ -147,7 +147,7 @@ export default class GitHub {
 		commentMessage += "## Core SVN\n\n" +
 		"Core Committers: Use this line as a base for the props when committing in SVN:\n" +
 		"```\n" +
-		"Props: " + contributorsList['svn'].join(', ') + "." +
+		"Props " + contributorsList['svn'].join(', ') + "." +
 		"\n```\n\n" +
 		"## GitHub Merge commits\n\n" +
 		"If you're merging code through a pull request on GitHub, copy and paste the following into the bottom of the merge commit message.\n\n" +
