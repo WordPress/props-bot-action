@@ -35289,18 +35289,6 @@ class GitHub {
 	constructor() {
 		const token = core.getInput("token") || process.env.GITHUB_TOKEN || "";
 		this.octokit = github.getOctokit(token);
-
-		const formats = core.getInput("format").replace(/ /g, '').split(',').map(function(value){
-			return value.trim();
-		}) || ["git"];
-
-		if ( formats.includes('all') ) {
-			this.format = ["git", "svn"];
-		} else if ( formats.includes('svn') || formats.includes('git') ) {
-			this.format = formats;
-		} else {
-			core.error( 'A valid props format was not provided.' );
-		}
 	}
 
 	/**
@@ -35420,9 +35408,6 @@ class GitHub {
 		core.debug( "Contributor list received:" );
 		core.debug( contributorsList );
 
-		core.debug( 'Formats requested:' );
-		core.debug( this.format );
-
 		let prNumber = context.payload?.pull_request?.number;
 		if ( 'issue_comment' === context.eventName ) {
 			prNumber = context.payload?.issue?.number;
@@ -35443,34 +35428,22 @@ class GitHub {
 				"Contributors, please [read how to link your accounts](https://make.wordpress.org/core/2020/03/19/associating-github-accounts-with-wordpress-org-profiles/) to ensure your work is properly credited in WordPress releases.\n\n";
 		}
 
-		if ( this.format.includes('svn') ) {
-			if ( this.format.includes('git') ) {
-				commentMessage += "## Core SVN\n\n";
-			}
+		commentMessage += "## Core SVN\n\n" +
+		"Core Committers: Use this line as a base for the props when committing in SVN:\n" +
+		"```\n" +
+		"Props " + contributorsList['svn'].join(', ') + "." +
+		"\n```\n\n" +
+		"## GitHub Merge commits\n\n" +
+		"If you're merging code through a pull request on GitHub, copy and paste the following into the bottom of the merge commit message.\n\n" +
+		"```\n";
 
-			commentMessage += "Core Committers: Use this line as a base for the props when committing in SVN:\n" +
-				"```\n" +
-				"Props " + contributorsList['svn'].join(', ') + "." +
-				"\n```\n\n";
+		if ( contributorsList['unlinked'].length > 0 ) {
+			commentMessage += "Unlinked contributors: " + contributorsList['unlinked'].join(', ') + ".\n\n";
 		}
 
-		if ( this.format.includes('git') ) {
-			if ( this.format.includes('svn') ) {
-				commentMessage += "## GitHub Merge commits\n\n";
-			}
-
-			commentMessage += "If you're merging code through a pull request on GitHub, copy and paste the following into the bottom of the merge commit message.\n\n" +
-				"```\n";
-
-			if (contributorsList['unlinked'].length > 0) {
-				commentMessage += "Unlinked contributors: " + contributorsList['unlinked'].join(', ') + ".\n\n";
-			}
-
-			commentMessage += contributorsList['coAuthored'].join("\n") +
-				"\n```\n\n";
-		}
-
-		commentMessage += "**To understand the WordPress project's expectations around crediting contributors, please [review the Contributor Attribution page in the Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).**\n";
+		commentMessage += contributorsList['coAuthored'].join("\n") +
+		"\n```\n\n" +
+		"**To understand the WordPress project's expectations around crediting contributors, please [review the Contributor Attribution page in the Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).**\n";
 
 		const comment = {
 			...commentInfo,
