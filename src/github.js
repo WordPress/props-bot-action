@@ -1,10 +1,19 @@
 import * as core from "@actions/core";
-import * as github from "@actions/github";
+import {paginateGraphql} from "@octokit/plugin-paginate-graphql";
+import { GitHub as OctokitPluginUtil, getOctokitOptions } from '@actions/github/lib/utils'
 
 export default class GitHub {
 	constructor() {
 		const token = core.getInput("token") || process.env.GITHUB_TOKEN || "";
-		this.octokit = github.getOctokit(token);
+		// Exit early if no token is provided.
+		if (token.length === 0) {
+			core.error("No GitHub token provided.");
+		}
+
+		// Create a new Octokit class instance with the paginateGraphql plugin.
+		this.octokitInstance = OctokitPluginUtil.plugin(paginateGraphql);
+		// Instantiate the Octokit class with the paginateGraphql plugin.
+		this.octokit = this.octokitInstance(getOctokitOptions(token));
 	}
 
 	/**
@@ -34,8 +43,12 @@ export default class GitHub {
 	async getContributorData({ owner, repo, prNumber }) {
 		core.info('Gathering contributor list.');
 
-		const data = await this.octokit.graphql(
-			`query($owner:String!, $name:String!, $prNumber:Int!) {
+		const ownerTest      = 'WordPress';
+		const repoTest      = 'gutenberg';
+		const prNumberTest = 57841;
+
+		const data = await this.octokit.graphql.paginateGraphql(
+			`query($owner:String!, $name:String!, $prNumber:Int!, $cursor: String) {
 				repository(owner:$owner, name:$name) {
 					pullRequest(number:$prNumber) {
 						commits(first: 100) {
@@ -67,6 +80,10 @@ export default class GitHub {
 									login
 								}
 							}
+							pageInfo {
+								hasNextPage
+								endCursor
+							}
 						}
 						closingIssuesReferences(first:100){
 							nodes {
@@ -85,7 +102,7 @@ export default class GitHub {
 					}
 				}
 			}`,
-			{ owner, name: repo, prNumber }
+			{ ownerTest, name: repoTest, prNumberTest }
 		);
 
 		return data?.repository?.pullRequest;
