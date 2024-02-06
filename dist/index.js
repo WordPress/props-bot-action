@@ -35297,6 +35297,9 @@ class GitHub {
 		} else {
 			this.format = formats;
 		}
+
+		core.debug('Formats requested:');
+		core.debug(this.format);
 	}
 
 	/**
