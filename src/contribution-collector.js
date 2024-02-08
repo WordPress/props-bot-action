@@ -59,6 +59,7 @@ export async function run() {
  * - Collects user data from WordPress.org.
  * - Generates a list of contributors.
  *
+ * @async
  * @return {Promise<string>} null if no contributors, otherwise an object with lists of contributors.
  */
 export async function getContributorsList() {
