@@ -2,7 +2,7 @@ name: 'WordPress Props'
 description: 'Leaves a list of all contributors associated with a pull request and linked issues in a comment for use within merge commits messages.'
 inputs:
   format:
-    description: 'Format of the message. use `git`, `svn`, `all`, or a comma seperate list of those.'
+    description: 'Format of the message. use `git`, `svn`, `all`, or a comma separated combination of those.'
     required: false
     default: 'git' 
   token:
