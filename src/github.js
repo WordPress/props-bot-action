@@ -13,8 +13,7 @@ export default class GitHub {
 
 		if ( formats.length === 0 ) {
 			this.format = [ "git" ];
-		}
-		else if ( formats.includes('all') ) {
+		} else if ( formats.includes('all') ) {
 			this.format = ["git", "svn"];
 		} else if ( formats.includes('svn') || formats.includes('git') ) {
 			this.format = formats;
