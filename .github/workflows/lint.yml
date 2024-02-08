@@ -33,4 +33,4 @@ jobs:
               run: npm ci
 
             - name: Run linters 
-              run: npm runt lint
+              run: npm run lint
