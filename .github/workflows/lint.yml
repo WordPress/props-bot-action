@@ -15,8 +15,8 @@ jobs:
     # - Sets up Node.js.
     # - Installs npm dependencies.
     # - Runs the linters.
-    unit-tests:
-        name: Run unit tests
+    lint:
+        name: Run Linters 
         runs-on: ubuntu-latest
 
         steps:
@@ -32,5 +32,5 @@ jobs:
             - name: Install dependencies
               run: npm ci
 
-            - name: Run unit tests
+            - name: Run linters 
               run: npm runt lint
