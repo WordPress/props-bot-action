@@ -2,40 +2,40 @@ name: Feature Request
 description: Request a new feature for the Props Bot.
 labels: ['[Type] Feature Request']
 assignees:
-  - desrosj
+    - desrosj
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Thank you for taking the time to submit this feature request! Keep in mind, there's no promise that all feature requests will be accepted.
-        This action has a specific purpose, to make tracking all contributions to the WordPress project on GitHub easier to collect in an automated way.
+    - type: markdown
+      attributes:
+          value: |
+              Thank you for taking the time to submit this feature request! Keep in mind, there's no promise that all feature requests will be accepted.
+              This action has a specific purpose, to make tracking all contributions to the WordPress project on GitHub easier to collect in an automated way.
 
-  - type: textarea
-    attributes:
-      label: Problem
-      description: Please write a brief description of the problem your feature request solves.
-    validations:
-      required: true
+    - type: textarea
+      attributes:
+          label: Problem
+          description: Please write a brief description of the problem your feature request solves.
+      validations:
+          required: true
 
-  - type: textarea
-    attributes:
-      label: Feature Request
-      description: Please write a brief description of your ideal solution, including how it solves the previously stated problem.
-    validations:
-      required: true
+    - type: textarea
+      attributes:
+          label: Feature Request
+          description: Please write a brief description of your ideal solution, including how it solves the previously stated problem.
+      validations:
+          required: true
 
-  - type: textarea
-    attributes:
-      label: Workaround
-      description: If you've implemented a workaround to solve this elsewhere, please describe what that is.
-    validations:
-      required: false
+    - type: textarea
+      attributes:
+          label: Workaround
+          description: If you've implemented a workaround to solve this elsewhere, please describe what that is.
+      validations:
+          required: false
 
-  - type: input
-    attributes:
-      label: Repository
-      description: |
-        Please include a link to the repository/project that stands to benefit from this feature.
-      placeholder: https://github.com/WordPress/wordpress-develop
-    validations:
-      required: false
+    - type: input
+      attributes:
+          label: Repository
+          description: |
+              Please include a link to the repository/project that stands to benefit from this feature.
+          placeholder: https://github.com/WordPress/wordpress-develop
+      validations:
+          required: false

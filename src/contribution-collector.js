@@ -1,7 +1,7 @@
-import * as core from "@actions/core";
-import * as github from "@actions/github";
-import GitHub from "./github.js";
-import { getWPOrgData } from "./utils.js";
+import * as core from '@actions/core';
+import * as github from '@actions/github';
+import GitHub from './github.js';
+import { getWPOrgData } from './utils.js';
 
 const { context } = github;
 const gh = new GitHub();
@@ -17,7 +17,13 @@ if ( 'issue_comment' === context.eventName ) {
  *
  * @type {string[]}
  */
-const contributorTypes = ["committers", "reviewers", "commenters", "reporters", "unlinked"];
+const contributorTypes = [
+	'committers',
+	'reviewers',
+	'commenters',
+	'reporters',
+	'unlinked',
+];
 
 /**
  * List of user data objects.
@@ -31,20 +37,20 @@ const userData = [];
  *
  * @type {*[]}
  */
-const contributors = contributorTypes.reduce((acc, type) => {
-	acc[type] = new Set();
+const contributors = contributorTypes.reduce( ( acc, type ) => {
+	acc[ type ] = new Set();
 	return acc;
-}, {});
+}, {} );
 
 export async function run() {
 	// Get a list of contributors.
 	const contributorsList = await getContributorsList();
 
 	// Comment on the pull request.
-	await gh.commentProps({
+	await gh.commentProps( {
 		context,
 		contributorsList,
-	});
+	} );
 }
 
 /**
@@ -53,79 +59,84 @@ export async function run() {
  * - Collects user data from WordPress.org.
  * - Generates a list of contributors.
  *
- * @returns {Promise<string>}
+ * @return {Promise<string>} null if no contributors, otherwise an object with lists of contributors.
  */
 export async function getContributorsList() {
-	const contributorData = await gh.getContributorData({
+	const contributorData = await gh.getContributorData( {
 		owner,
 		repo,
 		prNumber,
-	});
+	} );
 
-	core.debug('Raw contributor data:');
-	core.debug(contributorData);
+	core.debug( 'Raw contributor data:' );
+	core.debug( contributorData );
 
 	// Process pull request commits.
-	for (const commit of contributorData?.commits?.nodes || []) {
+	for ( const commit of contributorData?.commits?.nodes || [] ) {
 		/*
 		 * Commits are sometimes made by an email that is not associated with a GitHub account.
 		 * For these, info that may help us guess later.
 		 */
-		if (null === commit.commit.author.user) {
-			contributors.committers.add(commit.commit.author.email);
-			userData[commit.commit.author.email] = {
+		if ( null === commit.commit.author.user ) {
+			contributors.committers.add( commit.commit.author.email );
+			userData[ commit.commit.author.email ] = {
 				name: commit.commit.author.name,
 				email: commit.commit.author.email,
 			};
 		} else {
-			if (skipUser(commit.commit.author.user.login)) {
+			if ( skipUser( commit.commit.author.user.login ) ) {
 				continue;
 			}
 
-			contributors.committers.add(commit.commit.author.user.login);
-			userData[commit.commit.author.user.login] = commit.commit.author.user;
+			contributors.committers.add( commit.commit.author.user.login );
+			userData[ commit.commit.author.user.login ] =
+				commit.commit.author.user;
 		}
 	}
 
-	core.debug('Committers:');
-	core.debug(contributors.committers);
+	core.debug( 'Committers:' );
+	core.debug( contributors.committers );
 
 	// Process pull request reviews.
 	contributorData.reviews.nodes
-		.filter((review) => !skipUser(review.author.login))
-		.forEach((review) => contributors.reviewers.add(review.author.login));
+		.filter( ( review ) => ! skipUser( review.author.login ) )
+		.forEach( ( review ) =>
+			contributors.reviewers.add( review.author.login )
+		);
 
-	core.debug('Reviewers:');
-	core.debug(contributors.reviewers);
+	core.debug( 'Reviewers:' );
+	core.debug( contributors.reviewers );
 
 	// Process pull request comments.
 	contributorData.comments.nodes
-		.filter((comment) => !skipUser(comment.author.login))
-		.forEach((comment) => contributors.commenters.add(comment.author.login));
+		.filter( ( comment ) => ! skipUser( comment.author.login ) )
+		.forEach( ( comment ) =>
+			contributors.commenters.add( comment.author.login )
+		);
 
-	core.debug('Commenters:');
-	core.debug(contributors.commenters);
+	core.debug( 'Commenters:' );
+	core.debug( contributors.commenters );
 
 	// Process reporters and commenters for linked issues.
-	for (const linkedIssue of contributorData.closingIssuesReferences.nodes) {
-		if (!skipUser(linkedIssue.author.login)) {
-			contributors.reporters.add(linkedIssue.author.login);
+	for ( const linkedIssue of contributorData.closingIssuesReferences.nodes ) {
+		if ( ! skipUser( linkedIssue.author.login ) ) {
+			contributors.reporters.add( linkedIssue.author.login );
 		}
 
-		for (const issueComment of linkedIssue.comments.nodes) {
-			if (skipUser(issueComment.author.login)) {
+		for ( const issueComment of linkedIssue.comments.nodes ) {
+			if ( skipUser( issueComment.author.login ) ) {
 				continue;
 			}
 
-			contributors.commenters.add(issueComment.author.login);
+			contributors.commenters.add( issueComment.author.login );
 		}
 	}
 
-	core.debug('Reporters:');
-	core.debug(contributors.reporters);
+	core.debug( 'Reporters:' );
+	core.debug( contributors.reporters );
 
-	core.debug('Commenters (including linked issues):');
-	core.debug(contributors.commenters);
+	core.debug( 'Commenters (including linked issues):' );
+	core.debug( contributors.commenters );
 
 	// We already have user info for committers, we need to grab it for everyone else.
 	if (
@@ -135,87 +146,88 @@ export async function getContributorsList() {
 			...contributors.reporters,
 		].length > 0
 	) {
-		const contributorData = await gh.getUsersData([
+		const otherContributorData = await gh.getUsersData( [
 			...contributors.reviewers,
 			...contributors.commenters,
 			...contributors.reporters,
-		]);
+		] );
 
-		Object.values(contributorData).forEach((user) => {
-			userData[user.login] = user;
-		});
+		Object.values( otherContributorData ).forEach( ( user ) => {
+			userData[ user.login ] = user;
+		} );
 	}
 
 	const githubUsers = [];
-	Object.keys(contributors).forEach((key) => {
-		contributors[key].forEach((contributor) => {
-			githubUsers.push(contributor);
-		});
-	});
+	Object.keys( contributors ).forEach( ( key ) => {
+		contributors[ key ].forEach( ( contributor ) => {
+			githubUsers.push( contributor );
+		} );
+	} );
 
 	// No contributors were gathered.
-	if (githubUsers.length == 0) {
-		core.info('No contributors found.');
+	if ( githubUsers.length === 0 ) {
+		core.info( 'No contributors found.' );
 		return;
-	} else {
-		core.debug('GitHub contributor usernames:');
-		core.debug(githubUsers);
 	}
+
+	core.debug( 'GitHub contributor usernames:' );
+	core.debug( githubUsers );
 
 	// List to return from the function.
 	const contributorLists = [];
-	contributorLists['github'] = [];
+	contributorLists.github = [];
 
 	// Collect WordPress.org usernames
-	const wpOrgData = await getWPOrgData(githubUsers);
-	contributorLists['svn'] = [];
+	const wpOrgData = await getWPOrgData( githubUsers );
+	contributorLists.svn = [];
 
-	core.debug('WordPress.org raw data:');
-	core.debug(wpOrgData);
+	core.debug( 'WordPress.org raw data:' );
+	core.debug( wpOrgData );
 
 	// Add each contributor's wp.org username to their user data.
-	Object.keys(userData).forEach((contributor) => {
+	Object.keys( userData ).forEach( ( contributor ) => {
 		if (
-			Object.prototype.hasOwnProperty.call(wpOrgData, contributor) &&
-			wpOrgData[contributor] !== false
+			Object.prototype.hasOwnProperty.call( wpOrgData, contributor ) &&
+			wpOrgData[ contributor ] !== false
 		) {
-			userData[contributor].dotOrg = wpOrgData[contributor].slug;
-			contributorLists['svn'].push(wpOrgData[contributor].slug);
+			userData[ contributor ].dotOrg = wpOrgData[ contributor ].slug;
+			contributorLists.svn.push( wpOrgData[ contributor ].slug );
 		}
-	});
+	} );
 
-	contributorLists['coAuthored'] = [];
-	contributorLists['unlinked'] = [];
+	contributorLists.coAuthored = [];
+	contributorLists.unlinked = [];
 
-	contributorTypes
-		.map((priority) => {
-			// Skip an empty set of contributors.
-			if (contributors[priority].length === 0) {
-				return [];
-			}
+	contributorTypes.forEach( ( priority ) => {
+		// Skip an empty set of contributors.
+		if ( contributors[ priority ].length === 0 ) {
+			return [];
+		}
 
-			[...contributors[priority]]
-				.map((username) => {
-					if ('unlinked' == priority) {
-						core.debug( 'Unlinked contributor: ' + username );
-						return;
-					}
+		[ ...contributors[ priority ] ]
+			.map( ( username ) => {
+				if ( 'unlinked' === priority ) {
+					core.debug( 'Unlinked contributor: ' + username );
+					return null;
+				}
 
-					const { dotOrg } = userData[username];
-					if (
-						!Object.prototype.hasOwnProperty.call(
-							userData[username],
-							"dotOrg"
-						)
-					) {
-						contributorLists['unlinked'].push(username);
-						return;
-					}
+				const { dotOrg } = userData[ username ];
+				if (
+					! Object.prototype.hasOwnProperty.call(
+						userData[ username ],
+						'dotOrg'
+					)
+				) {
+					contributorLists.unlinked.push( username );
+					return null;
+				}
 
-					return contributorLists['coAuthored'].push( `Co-authored-by: ${username} <${dotOrg}@git.wordpress.org>` );
-				})
-				.filter((el) => el);
-		});
+				return contributorLists.coAuthored.push(
+					`Co-authored-by: ${ username } <${ dotOrg }@git.wordpress.org>`
+				);
+			} )
+			.filter( ( el ) => el );
+	} );
 
 	core.debug( contributorLists );
 
@@ -229,12 +241,12 @@ export async function getContributorsList() {
  *
  * @return {boolean} true if the username should be skipped. false otherwise.
  */
-function skipUser(username) {
-	const skippedUsers = ["github-actions", "dependabot[bot]"];
+function skipUser( username ) {
+	const skippedUsers = [ 'github-actions', 'dependabot[bot]' ];
 
 	if (
-		-1 === skippedUsers.indexOf(username) &&
-       !contributorAlreadyPresent(username)
+		-1 === skippedUsers.indexOf( username ) &&
+		! contributorAlreadyPresent( username )
 	) {
 		return false;
 	}
@@ -251,10 +263,11 @@ function skipUser(username) {
  *
  * @return {boolean} true if the username is already in the list. false otherwise.
  */
-function contributorAlreadyPresent(username) {
-	for (const contributorType of contributorTypes) {
-		if (contributors[contributorType].has(username)) {
+function contributorAlreadyPresent( username ) {
+	for ( const contributorType of contributorTypes ) {
+		if ( contributors[ contributorType ].has( username ) ) {
 			return true;
 		}
 	}
+	return false;
 }
