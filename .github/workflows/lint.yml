@@ -1,4 +1,4 @@
-name: Unit tests
+name: Lint 
 
 on:
     pull_request:
@@ -8,15 +8,15 @@ on:
             - 'releases/*'
 
 jobs:
-    # Runs the unit test suite.
+    # Runs the linters.
     #
     # Performs the following steps:
     # - Checks out the repository.
     # - Sets up Node.js.
     # - Installs npm dependencies.
-    # - Runs the unit tests.
-    unit-tests:
-        name: Run unit tests
+    # - Runs the linters.
+    lint:
+        name: Run Linters 
         runs-on: ubuntu-latest
 
         steps:
@@ -32,5 +32,5 @@ jobs:
             - name: Install dependencies
               run: npm ci
 
-            - name: Run unit tests
-              run: npm test
+            - name: Run linters 
+              run: npm run lint

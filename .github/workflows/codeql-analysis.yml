@@ -1,46 +1,46 @@
 name: CodeQL scanning
 
 on:
-  push:
-    branches:
-      - 'trunk'
-  pull_request:
-    # The branches below must be a subset of the branches above
-    branches:
-      - 'trunk'
-  schedule:
-    - cron: '0 8 * * 2'
+    push:
+        branches:
+            - 'trunk'
+    pull_request:
+        # The branches below must be a subset of the branches above
+        branches:
+            - 'trunk'
+    schedule:
+        - cron: '0 8 * * 2'
 
 jobs:
-  # Performs a code analysis using CodeQL.
-  #
-  # Performs the following steps:
-  # - Checks out the repository.
-  # - Initializes CodeQL.
-  # - Performs CodeQL analysis.
-  analyze:
-    name: Analyze
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
+    # Performs a code analysis using CodeQL.
+    #
+    # Performs the following steps:
+    # - Checks out the repository.
+    # - Initializes CodeQL.
+    # - Performs CodeQL analysis.
+    analyze:
+        name: Analyze
+        runs-on: ubuntu-latest
+        permissions:
+            actions: read
+            contents: read
+            security-events: write
 
-    strategy:
-      fail-fast: false
-      matrix:
-        language: [ 'javascript' ]
+        strategy:
+            fail-fast: false
+            matrix:
+                language: ['javascript']
 
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-    # Initializes the CodeQL tools for scanning.
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@e8893c57a1f3a2b659b6b55564fdfdbbd2982911 # v3.24.0
-      with:
-        languages: ${{ matrix.language }}
-        config-file: ./.github/codeql/codeql-config.yml
+            # Initializes the CodeQL tools for scanning.
+            - name: Initialize CodeQL
+              uses: github/codeql-action/init@e8893c57a1f3a2b659b6b55564fdfdbbd2982911 # v3.24.0
+              with:
+                  languages: ${{ matrix.language }}
+                  config-file: ./.github/codeql/codeql-config.yml
 
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@e8893c57a1f3a2b659b6b55564fdfdbbd2982911 # v3.24.0
+            - name: Perform CodeQL Analysis
+              uses: github/codeql-action/analyze@e8893c57a1f3a2b659b6b55564fdfdbbd2982911 # v3.24.0

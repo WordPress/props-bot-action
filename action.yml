@@ -1,14 +1,14 @@
 name: 'WordPress Props'
 description: 'Leaves a list of all contributors associated with a pull request and linked issues in a comment for use within merge commits messages.'
 inputs:
-  format:
-    description: 'Format of the message. use `git`, `svn`, `all`, or a comma separated combination of those.'
-    required: false
-    default: 'git' 
-  token:
-    description: 'GitHub secret token.'
-    required: true
-    default: ${{ github.token }}
+    format:
+        description: 'Format of the message. use `git`, `svn`, `all`, or a comma separated combination of those.'
+        required: false
+        default: 'git'
+    token:
+        description: 'GitHub secret token.'
+        required: true
+        default: ${{ github.token }}
 runs:
-  using: 'node20'
-  main: 'dist/index.js'
+    using: 'node20'
+    main: 'dist/index.js'
