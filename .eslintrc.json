@@ -1,16 +1,18 @@
 {
-    "env": {
-        "commonjs": true,
-        "es6": true,
-        "jest": true,
-        "node": true
-    },
-    "extends": "eslint:recommended",
-    "parserOptions": {
-        "sourceType": "module",
-        "ecmaVersion": "latest"
-    },
-    "rules": {
-        "indent": ["error", "tab"]
-    }
+	"env": {
+		"commonjs": true,
+		"es6": true,
+		"jest": true,
+		"node": true
+	},
+	"extends": "plugin:@wordpress/eslint-plugin/recommended",
+	"parserOptions": {
+		"sourceType": "module",
+		"ecmaVersion": "latest"
+	},
+	"rules": {
+		"indent": [ "error", "tab" ],
+		"one-var": [ "error", "never" ],
+		"prefer-arrow-callback": [ "error" ]
+	}
 }
