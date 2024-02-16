@@ -208,7 +208,7 @@ export default class GitHub {
 					'.\n\n';
 			}
 
-			if ( contributorsList.git.length > 0 ) {
+			if ( contributorsList.coAuthored.length > 0 ) {
 				commentMessage +=
 					contributorsList.coAuthored.join('\n');
 			}
