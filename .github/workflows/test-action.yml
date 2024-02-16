@@ -17,7 +17,7 @@ jobs:
     # - Checks out the repository.
     # - Runs the Action.
     test:
-        name: Test the Action
+        name: Run Props Bot
         runs-on: ubuntu-latest
 
         steps:
