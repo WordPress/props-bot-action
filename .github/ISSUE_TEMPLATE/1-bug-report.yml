@@ -47,7 +47,7 @@ body:
       attributes:
           label: Link
           description: |
-              Please include a link to a GitHub pull request run showing the issue.
-          placeholder: https://github.com/WordPress/wordpress-develop/pull/5990
+              Please include a link to a GitHub Action workflow run demonstrating the issue.
+          placeholder: https://github.com/WordPress/props-bot-action/actions/runs/7923792615/attempts/1
       validations:
           required: false
