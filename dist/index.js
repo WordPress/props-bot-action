@@ -35461,7 +35461,10 @@ class GitHub {
 				'Contributors, please [read how to link your accounts](https://make.wordpress.org/core/2020/03/19/associating-github-accounts-with-wordpress-org-profiles/) to ensure your work is properly credited in WordPress releases.\n\n';
 		}
 
-		if ( this.format.includes( 'svn' ) && contributorsList.svn.length > 0 ) {
+		if (
+			this.format.includes( 'svn' ) &&
+			contributorsList.svn.length > 0
+		) {
 			if ( this.format.includes( 'git' ) ) {
 				commentMessage += '## Core SVN\n\n';
 			}
@@ -35492,8 +35495,7 @@ class GitHub {
 			}
 
 			if ( contributorsList.coAuthored.length > 0 ) {
-				commentMessage +=
-					contributorsList.coAuthored.join('\n');
+				commentMessage += contributorsList.coAuthored.join( '\n' );
 			}
 
 			commentMessage += '\n```\n\n';
