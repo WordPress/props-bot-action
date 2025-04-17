@@ -39380,6 +39380,7 @@ function skipUser( username ) {
 		'dependabot', // Here for backwards compatibility with old pull requests.
 		'github-advanced-security',
 		'codecov',
+		'copilot-pull-request-reviewer',
 	];
 
 	if (
