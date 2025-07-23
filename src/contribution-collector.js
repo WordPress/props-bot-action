@@ -250,6 +250,7 @@ function skipUser( username ) {
 		'github-advanced-security',
 		'codecov',
 		'copilot-pull-request-reviewer',
+		'copilot-swe-agent',
 	];
 
 	if (
