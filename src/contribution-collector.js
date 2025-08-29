@@ -100,7 +100,9 @@ export async function getContributorsList() {
 
 	// Process pull request reviews.
 	contributorData.reviews.nodes
-		.filter( ( review ) => ! skipUser( review.author.login ) )
+		.filter(
+			( review ) => review.author && ! skipUser( review.author.login )
+		)
 		.forEach( ( review ) =>
 			contributors.reviewers.add( review.author.login )
 		);
@@ -110,7 +112,9 @@ export async function getContributorsList() {
 
 	// Process pull request comments.
 	contributorData.comments.nodes
-		.filter( ( comment ) => ! skipUser( comment.author.login ) )
+		.filter(
+			( comment ) => comment.author && ! skipUser( comment.author.login )
+		)
 		.forEach( ( comment ) =>
 			contributors.commenters.add( comment.author.login )
 		);
@@ -120,12 +124,15 @@ export async function getContributorsList() {
 
 	// Process reporters and commenters for linked issues.
 	for ( const linkedIssue of contributorData.closingIssuesReferences.nodes ) {
-		if ( ! skipUser( linkedIssue.author.login ) ) {
+		if ( linkedIssue.author && ! skipUser( linkedIssue.author.login ) ) {
 			contributors.reporters.add( linkedIssue.author.login );
 		}
 
 		for ( const issueComment of linkedIssue.comments.nodes ) {
-			if ( skipUser( issueComment.author.login ) ) {
+			if (
+				! issueComment.author ||
+				skipUser( issueComment.author.login )
+			) {
 				continue;
 			}
 
