@@ -218,6 +218,12 @@ export default class GitHub {
 			commentMessage += '\n```\n\n';
 		}
 
+		// Note that ghosts were detected. Spooky! 👻
+		if ( contributorsList.hasGhostActivity ) {
+			commentMessage +=
+				'At least one `ghost` was discovered. `ghost`s represent deleted GitHub user accounts.\n\n';
+		}
+
 		commentMessage +=
 			"**To understand the WordPress project's expectations around crediting contributors, please [review the Contributor Attribution page in the Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).**\n";
 
