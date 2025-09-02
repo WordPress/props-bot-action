@@ -73,6 +73,10 @@ jobs:
             ( ! github.event.pull_request.draft && github.event.pull_request.state == 'open' || ! github.event.issue.draft && github.event.issue.state == 'open' )
 
         steps:
+            # Note: This is not required in the example workflow, but it is here.
+            - name: Checkout repository
+              uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
             - name: Gather a list of contributors
               # Note: this was changed to a local reference to ensure that changes within pull requests are tested
               # before merging.
