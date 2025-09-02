@@ -45,6 +45,7 @@ jobs:
     # Compiles a list of props for a pull request.
     #
     # Performs the following steps:
+    # - Checks out the repository.
     # - Collects a list of contributor props and leaves a comment.
     # - Removes the props-bot label, if necessary.
     props-bot:
