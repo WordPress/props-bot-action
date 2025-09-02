@@ -36954,6 +36954,12 @@ class GitHub {
 			commentMessage += '\n```\n\n';
 		}
 
+		// Note that ghosts were detected. Spooky! 👻
+		if ( contributorsList.hasGhostActivity ) {
+			commentMessage +=
+				'At least one `ghost` was discovered. `ghost`s represent deleted GitHub user accounts.\n\n';
+		}
+
 		commentMessage +=
 			"**To understand the WordPress project's expectations around crediting contributors, please [review the Contributor Attribution page in the Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).**\n";
 
@@ -39259,8 +39265,17 @@ async function getContributorsList() {
 	core.debug( 'Raw contributor data:' );
 	core.debug( contributorData );
 
+	// Keep track of whether the Ghostbusters are needed.
+	let hasGhostActivity = false;
+
 	// Process pull request commits.
 	for ( const commit of contributorData?.commits?.nodes || [] ) {
+		// Set a trap for some ghosts.
+		if ( ! commit.commit.author ) {
+			hasGhostActivity = true;
+			continue;
+		}
+
 		/*
 		 * Commits are sometimes made by an email that is not associated with a GitHub account.
 		 * For these, info that may help us guess later.
@@ -39287,7 +39302,13 @@ async function getContributorsList() {
 
 	// Process pull request reviews.
 	contributorData.reviews.nodes
-		.filter( ( review ) => ! skipUser( review.author.login ) )
+		.filter( ( review ) => {
+			if ( ! review.author ) {
+				hasGhostActivity = true;
+				return false;
+			}
+			return ! skipUser( review.author.login );
+		} )
 		.forEach( ( review ) =>
 			contributors.reviewers.add( review.author.login )
 		);
@@ -39297,7 +39318,13 @@ async function getContributorsList() {
 
 	// Process pull request comments.
 	contributorData.comments.nodes
-		.filter( ( comment ) => ! skipUser( comment.author.login ) )
+		.filter( ( comment ) => {
+			if ( ! comment.author ) {
+				hasGhostActivity = true;
+				return false;
+			}
+			return ! skipUser( comment.author.login );
+		} )
 		.forEach( ( comment ) =>
 			contributors.commenters.add( comment.author.login )
 		);
@@ -39307,12 +39334,18 @@ async function getContributorsList() {
 
 	// Process reporters and commenters for linked issues.
 	for ( const linkedIssue of contributorData.closingIssuesReferences.nodes ) {
-		if ( ! skipUser( linkedIssue.author.login ) ) {
+		// Lay a proton trap for any more ghosts.
+		if ( ! linkedIssue.author ) {
+			hasGhostActivity = true;
+		} else if ( ! skipUser( linkedIssue.author.login ) ) {
 			contributors.reporters.add( linkedIssue.author.login );
 		}
 
 		for ( const issueComment of linkedIssue.comments.nodes ) {
-			if ( skipUser( issueComment.author.login ) ) {
+			if (
+				! issueComment.author ||
+				skipUser( issueComment.author.login )
+			) {
 				continue;
 			}
 
@@ -39416,6 +39449,9 @@ async function getContributorsList() {
 			} )
 			.filter( ( el ) => el );
 	} );
+
+	// Include findings so Ghostbuster HQ can be notified.
+	contributorLists.hasGhostActivity = hasGhostActivity;
 
 	core.debug( contributorLists );
 
