@@ -19,7 +19,7 @@
 		"url": "https://github.com/WordPress/props-bot/issues"
 	},
 	"engines": {
-		"node": ">=24.0",
+		"node": ">=24.11.0",
 		"npm": ">=10.1"
 	},
 	"main": "index.js",
