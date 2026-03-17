@@ -19,8 +19,8 @@
 		"url": "https://github.com/WordPress/props-bot/issues"
 	},
 	"engines": {
-		"node": ">=20.7.0",
-		"npm": ">=10.1"
+		"node": ">=24.11.0",
+		"npm": ">=11.6.1"
 	},
 	"main": "index.js",
 	"npmpackagejsonlint": {
