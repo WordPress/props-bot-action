@@ -37,7 +37,7 @@
 	"dependencies": {
 		"@actions/core": "^2.0.3",
 		"@actions/github": "^9.0.0",
-		"@wordpress/npm-package-json-lint-config": "^5.29.0",
+		"@wordpress/npm-package-json-lint-config": "^5.42.0",
 		"node-fetch": "^3.3.2"
 	},
 	"devDependencies": {
