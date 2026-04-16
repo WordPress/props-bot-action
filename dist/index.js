@@ -36799,6 +36799,7 @@ class GitHub {
 						commits(first: 100) {
 							nodes {
 								commit {
+									message
 									author {
 										user {
 											databaseId
@@ -36869,6 +36870,49 @@ class GitHub {
 	}
 
 	/**
+	 * Resolves a list of email addresses to GitHub users, where possible.
+	 *
+	 * GitHub's user search only returns accounts whose email is public, so
+	 * unresolved entries are expected and returned as null.
+	 *
+	 * @param {string[]} emails The email addresses to resolve.
+	 * @return {Promise<Object>} Map of lowercased email to user object (or null).
+	 */
+	async getUsersByEmails( emails = [] ) {
+		const result = {};
+		if ( emails.length === 0 ) {
+			return result;
+		}
+
+		const queryParts = emails.map(
+			( email, index ) =>
+				`e${ index }: search(query: "in:email ${ email.replace(
+					/"/g,
+					'\\"'
+				) }", type: USER, first: 1) { nodes { ... on User { databaseId login name email } } }`
+		);
+
+		try {
+			const data = await this.octokit.graphql(
+				'{ ' + queryParts.join( '\n' ) + ' }'
+			);
+
+			emails.forEach( ( email, index ) => {
+				const nodes = data?.[ `e${ index }` ]?.nodes || [];
+				result[ email.toLowerCase() ] =
+					nodes.length > 0 ? nodes[ 0 ] : null;
+			} );
+		} catch ( e ) {
+			core.info( `Error resolving co-author emails: ${ e.message }` );
+			emails.forEach( ( email ) => {
+				result[ email.toLowerCase() ] = null;
+			} );
+		}
+
+		return result;
+	}
+
+	/**
 	 * Adds a comment to a PR with the list of contributors.
 	 * - If a comment already exists, it will be updated.
 	 *
@@ -36912,6 +36956,20 @@ class GitHub {
 				contributorsList.unlinked.join( ', @' ) +
 				'.\n\n' +
 				'Contributors, please [read how to link your accounts](https://make.wordpress.org/core/2020/03/19/associating-github-accounts-with-wordpress-org-profiles/) to ensure your work is properly credited in WordPress releases.\n\n';
+		}
+
+		if (
+			contributorsList.unlinkedCoAuthors &&
+			contributorsList.unlinkedCoAuthors.length > 0
+		) {
+			commentMessage +=
+				'## Co-authors from commit trailers\n\n' +
+				'The following `Co-authored-by:` trailers were found in commit messages but could not be matched to a GitHub account (the email may be private):\n\n';
+			for ( const coAuthor of contributorsList.unlinkedCoAuthors ) {
+				commentMessage += `- ${ coAuthor.name } <${ coAuthor.email }>\n`;
+			}
+			commentMessage +=
+				'\nCommitters, please verify whether these contributors should be credited separately.\n\n';
 		}
 
 		if (
@@ -39190,6 +39248,36 @@ async function getWPOrgData( githubUsers ) {
 	} ).then( ( response ) => response.json() );
 }
 
+/**
+ * Parses `Co-authored-by: Name <email>` trailers from a commit message.
+ *
+ * Matches the trailer on any line, case-insensitively. Per the
+ * git-interpret-trailers convention trailers live at the end of the message,
+ * but GitHub's squash-merge flow and many commit tools write them elsewhere,
+ * so the full message is scanned.
+ *
+ * @param {string} message The commit message.
+ * @return {Array<{name: string, email: string}>} The parsed trailers.
+ */
+function parseCoAuthorTrailers( message ) {
+	if ( ! message ) {
+		return [];
+	}
+
+	const trailerRegex = /^\s*Co-authored-by:\s*(.+?)\s*<([^<>\s]+)>\s*$/gim;
+	const trailers = [];
+
+	let match;
+	while ( ( match = trailerRegex.exec( message ) ) !== null ) {
+		trailers.push( {
+			name: match[ 1 ].trim(),
+			email: match[ 2 ].trim().toLowerCase(),
+		} );
+	}
+
+	return trailers;
+}
+
 ;// CONCATENATED MODULE: ./src/contribution-collector.js
 
 
@@ -39268,6 +39356,9 @@ async function getContributorsList() {
 	// Keep track of whether the Ghostbusters are needed.
 	let hasGhostActivity = false;
 
+	// `Co-authored-by:` trailers whose email did not resolve to a GitHub user.
+	const unlinkedCoAuthors = [];
+
 	// Process pull request commits.
 	for ( const commit of contributorData?.commits?.nodes || [] ) {
 		// Set a trap for some ghosts.
@@ -39299,6 +39390,53 @@ async function getContributorsList() {
 
 	core.debug( 'Committers:' );
 	core.debug( contributors.committers );
+
+	// Collect Co-authored-by trailers from commit messages (#86).
+	const committerEmails = new Set();
+	for ( const commit of contributorData?.commits?.nodes || [] ) {
+		const authorEmail =
+			commit.commit.author?.user?.email ||
+			commit.commit.author?.email ||
+			'';
+		if ( authorEmail ) {
+			committerEmails.add( authorEmail.toLowerCase() );
+		}
+	}
+
+	const trailersByEmail = new Map();
+	for ( const commit of contributorData?.commits?.nodes || [] ) {
+		const parsed = parseCoAuthorTrailers( commit.commit?.message || '' );
+		for ( const trailer of parsed ) {
+			if ( committerEmails.has( trailer.email ) ) {
+				continue;
+			}
+			if ( ! trailersByEmail.has( trailer.email ) ) {
+				trailersByEmail.set( trailer.email, trailer );
+			}
+		}
+	}
+
+	if ( trailersByEmail.size > 0 ) {
+		core.debug( 'Co-authored-by trailers:' );
+		core.debug( [ ...trailersByEmail.values() ] );
+
+		const emailToUser = await gh.getUsersByEmails( [
+			...trailersByEmail.keys(),
+		] );
+
+		for ( const [ email, trailer ] of trailersByEmail ) {
+			const user = emailToUser[ email ];
+			if ( user?.login && ! skipUser( user.login ) ) {
+				contributors.committers.add( user.login );
+				userData[ user.login ] = user;
+			} else {
+				unlinkedCoAuthors.push( trailer );
+			}
+		}
+
+		core.debug( 'Committers (incl. co-author trailers):' );
+		core.debug( contributors.committers );
+	}
 
 	// Process pull request reviews.
 	contributorData.reviews.nodes
@@ -39452,6 +39590,9 @@ async function getContributorsList() {
 
 	// Include findings so Ghostbuster HQ can be notified.
 	contributorLists.hasGhostActivity = hasGhostActivity;
+
+	// Surface co-author trailers that couldn't be matched to a GitHub user.
+	contributorLists.unlinkedCoAuthors = unlinkedCoAuthors;
 
 	core.debug( contributorLists );
 

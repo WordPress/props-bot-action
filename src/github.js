@@ -63,6 +63,7 @@ export default class GitHub {
 						commits(first: 100) {
 							nodes {
 								commit {
+									message
 									author {
 										user {
 											databaseId
@@ -133,6 +134,49 @@ export default class GitHub {
 	}
 
 	/**
+	 * Resolves a list of email addresses to GitHub users, where possible.
+	 *
+	 * GitHub's user search only returns accounts whose email is public, so
+	 * unresolved entries are expected and returned as null.
+	 *
+	 * @param {string[]} emails The email addresses to resolve.
+	 * @return {Promise<Object>} Map of lowercased email to user object (or null).
+	 */
+	async getUsersByEmails( emails = [] ) {
+		const result = {};
+		if ( emails.length === 0 ) {
+			return result;
+		}
+
+		const queryParts = emails.map(
+			( email, index ) =>
+				`e${ index }: search(query: "in:email ${ email.replace(
+					/"/g,
+					'\\"'
+				) }", type: USER, first: 1) { nodes { ... on User { databaseId login name email } } }`
+		);
+
+		try {
+			const data = await this.octokit.graphql(
+				'{ ' + queryParts.join( '\n' ) + ' }'
+			);
+
+			emails.forEach( ( email, index ) => {
+				const nodes = data?.[ `e${ index }` ]?.nodes || [];
+				result[ email.toLowerCase() ] =
+					nodes.length > 0 ? nodes[ 0 ] : null;
+			} );
+		} catch ( e ) {
+			core.info( `Error resolving co-author emails: ${ e.message }` );
+			emails.forEach( ( email ) => {
+				result[ email.toLowerCase() ] = null;
+			} );
+		}
+
+		return result;
+	}
+
+	/**
 	 * Adds a comment to a PR with the list of contributors.
 	 * - If a comment already exists, it will be updated.
 	 *
@@ -176,6 +220,20 @@ export default class GitHub {
 				contributorsList.unlinked.join( ', @' ) +
 				'.\n\n' +
 				'Contributors, please [read how to link your accounts](https://make.wordpress.org/core/2020/03/19/associating-github-accounts-with-wordpress-org-profiles/) to ensure your work is properly credited in WordPress releases.\n\n';
+		}
+
+		if (
+			contributorsList.unlinkedCoAuthors &&
+			contributorsList.unlinkedCoAuthors.length > 0
+		) {
+			commentMessage +=
+				'## Co-authors from commit trailers\n\n' +
+				'The following `Co-authored-by:` trailers were found in commit messages but could not be matched to a GitHub account (the email may be private):\n\n';
+			for ( const coAuthor of contributorsList.unlinkedCoAuthors ) {
+				commentMessage += `- ${ coAuthor.name } <${ coAuthor.email }>\n`;
+			}
+			commentMessage +=
+				'\nCommitters, please verify whether these contributors should be credited separately.\n\n';
 		}
 
 		if (
