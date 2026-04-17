@@ -1,7 +1,11 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 import GitHub from './github.js';
-import { getWPOrgData } from './utils.js';
+import {
+	getWPOrgData,
+	parseCoAuthorTrailers,
+	parseNoreplyEmail,
+} from './utils.js';
 
 const { context } = github;
 const gh = new GitHub();
@@ -75,6 +79,9 @@ export async function getContributorsList() {
 	// Keep track of whether the Ghostbusters are needed.
 	let hasGhostActivity = false;
 
+	// `Co-authored-by:` trailers whose email did not resolve to a GitHub user.
+	const unlinkedCoAuthors = [];
+
 	// Process pull request commits.
 	for ( const commit of contributorData?.commits?.nodes || [] ) {
 		// Set a trap for some ghosts.
@@ -106,6 +113,75 @@ export async function getContributorsList() {
 
 	core.debug( 'Committers:' );
 	core.debug( contributors.committers );
+
+	// Collect Co-authored-by trailers from commit messages (#86).
+	const committerEmails = new Set();
+	for ( const commit of contributorData?.commits?.nodes || [] ) {
+		const authorEmail =
+			commit.commit.author?.user?.email ||
+			commit.commit.author?.email ||
+			'';
+		if ( authorEmail ) {
+			committerEmails.add( authorEmail.toLowerCase() );
+		}
+	}
+
+	const trailersByEmail = new Map();
+	for ( const commit of contributorData?.commits?.nodes || [] ) {
+		const parsed = parseCoAuthorTrailers( commit.commit?.message || '' );
+		for ( const trailer of parsed ) {
+			if ( committerEmails.has( trailer.email ) ) {
+				continue;
+			}
+			if ( ! trailersByEmail.has( trailer.email ) ) {
+				trailersByEmail.set( trailer.email, trailer );
+			}
+		}
+	}
+
+	if ( trailersByEmail.size > 0 ) {
+		core.debug( 'Co-authored-by trailers:' );
+		core.debug( [ ...trailersByEmail.values() ] );
+
+		// Resolve `users.noreply.github.com` addresses locally; they encode the
+		// login directly and don't need a search call.
+		const emailsToResolve = [];
+		for ( const [ email, trailer ] of trailersByEmail ) {
+			const noreply = parseNoreplyEmail( email );
+			if ( ! noreply ) {
+				emailsToResolve.push( email );
+				continue;
+			}
+			if ( skipUser( noreply.login ) ) {
+				continue;
+			}
+			contributors.committers.add( noreply.login );
+			userData[ noreply.login ] = {
+				login: noreply.login,
+				databaseId: noreply.databaseId,
+				name: trailer.name,
+				email: trailer.email,
+			};
+		}
+
+		if ( emailsToResolve.length > 0 ) {
+			const emailToUser =
+				await gh.getUsersByEmails( emailsToResolve );
+			for ( const email of emailsToResolve ) {
+				const trailer = trailersByEmail.get( email );
+				const user = emailToUser[ email ];
+				if ( user?.login && ! skipUser( user.login ) ) {
+					contributors.committers.add( user.login );
+					userData[ user.login ] = user;
+				} else {
+					unlinkedCoAuthors.push( trailer );
+				}
+			}
+		}
+
+		core.debug( 'Committers (incl. co-author trailers):' );
+		core.debug( contributors.committers );
+	}
 
 	// Process pull request reviews.
 	contributorData.reviews.nodes
@@ -259,6 +335,9 @@ export async function getContributorsList() {
 
 	// Include findings so Ghostbuster HQ can be notified.
 	contributorLists.hasGhostActivity = hasGhostActivity;
+
+	// Surface co-author trailers that couldn't be matched to a GitHub user.
+	contributorLists.unlinkedCoAuthors = unlinkedCoAuthors;
 
 	core.debug( contributorLists );
 
