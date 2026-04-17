@@ -57,6 +57,39 @@ export function parseCoAuthorTrailers( message ) {
 }
 
 /**
+ * Extracts the GitHub login (and numeric ID, when present) from a
+ * `users.noreply.github.com` email.
+ *
+ * Two formats exist:
+ * - `123456+login@users.noreply.github.com` (post-2017 default)
+ * - `login@users.noreply.github.com` (pre-2017)
+ *
+ * Returns null for any other email, letting the caller fall back to a
+ * GitHub user-search lookup.
+ *
+ * @param {string} email
+ * @return {{ login: string, databaseId: number|null }|null}
+ */
+export function parseNoreplyEmail( email ) {
+	if ( ! email ) {
+		return null;
+	}
+
+	const match = String( email )
+		.toLowerCase()
+		.match( /^(?:(\d+)\+)?([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)@users\.noreply\.github\.com$/ );
+
+	if ( ! match ) {
+		return null;
+	}
+
+	return {
+		databaseId: match[ 1 ] ? parseInt( match[ 1 ], 10 ) : null,
+		login: match[ 2 ],
+	};
+}
+
+/**
  * Escapes GitHub Flavored Markdown special characters in user-controlled text.
  *
  * Used when interpolating commit-trailer names/emails into the bot comment so

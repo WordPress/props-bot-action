@@ -38939,6 +38939,39 @@ function parseCoAuthorTrailers( message ) {
 }
 
 /**
+ * Extracts the GitHub login (and numeric ID, when present) from a
+ * `users.noreply.github.com` email.
+ *
+ * Two formats exist:
+ * - `123456+login@users.noreply.github.com` (post-2017 default)
+ * - `login@users.noreply.github.com` (pre-2017)
+ *
+ * Returns null for any other email, letting the caller fall back to a
+ * GitHub user-search lookup.
+ *
+ * @param {string} email
+ * @return {{ login: string, databaseId: number|null }|null}
+ */
+function parseNoreplyEmail( email ) {
+	if ( ! email ) {
+		return null;
+	}
+
+	const match = String( email )
+		.toLowerCase()
+		.match( /^(?:(\d+)\+)?([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)@users\.noreply\.github\.com$/ );
+
+	if ( ! match ) {
+		return null;
+	}
+
+	return {
+		databaseId: match[ 1 ] ? parseInt( match[ 1 ], 10 ) : null,
+		login: match[ 2 ],
+	};
+}
+
+/**
  * Escapes GitHub Flavored Markdown special characters in user-controlled text.
  *
  * Used when interpolating commit-trailer names/emails into the bot comment so
@@ -39439,17 +39472,39 @@ async function getContributorsList() {
 		core.debug( 'Co-authored-by trailers:' );
 		core.debug( [ ...trailersByEmail.values() ] );
 
-		const emailToUser = await gh.getUsersByEmails( [
-			...trailersByEmail.keys(),
-		] );
-
+		// Resolve `users.noreply.github.com` addresses locally; they encode the
+		// login directly and don't need a search call.
+		const emailsToResolve = [];
 		for ( const [ email, trailer ] of trailersByEmail ) {
-			const user = emailToUser[ email ];
-			if ( user?.login && ! skipUser( user.login ) ) {
-				contributors.committers.add( user.login );
-				userData[ user.login ] = user;
-			} else {
-				unlinkedCoAuthors.push( trailer );
+			const noreply = parseNoreplyEmail( email );
+			if ( ! noreply ) {
+				emailsToResolve.push( email );
+				continue;
+			}
+			if ( skipUser( noreply.login ) ) {
+				continue;
+			}
+			contributors.committers.add( noreply.login );
+			userData[ noreply.login ] = {
+				login: noreply.login,
+				databaseId: noreply.databaseId,
+				name: trailer.name,
+				email: trailer.email,
+			};
+		}
+
+		if ( emailsToResolve.length > 0 ) {
+			const emailToUser =
+				await gh.getUsersByEmails( emailsToResolve );
+			for ( const email of emailsToResolve ) {
+				const trailer = trailersByEmail.get( email );
+				const user = emailToUser[ email ];
+				if ( user?.login && ! skipUser( user.login ) ) {
+					contributors.committers.add( user.login );
+					userData[ user.login ] = user;
+				} else {
+					unlinkedCoAuthors.push( trailer );
+				}
 			}
 		}
 

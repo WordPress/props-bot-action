@@ -1,7 +1,11 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 import GitHub from './github.js';
-import { getWPOrgData, parseCoAuthorTrailers } from './utils.js';
+import {
+	getWPOrgData,
+	parseCoAuthorTrailers,
+	parseNoreplyEmail,
+} from './utils.js';
 
 const { context } = github;
 const gh = new GitHub();
@@ -139,17 +143,39 @@ export async function getContributorsList() {
 		core.debug( 'Co-authored-by trailers:' );
 		core.debug( [ ...trailersByEmail.values() ] );
 
-		const emailToUser = await gh.getUsersByEmails( [
-			...trailersByEmail.keys(),
-		] );
-
+		// Resolve `users.noreply.github.com` addresses locally; they encode the
+		// login directly and don't need a search call.
+		const emailsToResolve = [];
 		for ( const [ email, trailer ] of trailersByEmail ) {
-			const user = emailToUser[ email ];
-			if ( user?.login && ! skipUser( user.login ) ) {
-				contributors.committers.add( user.login );
-				userData[ user.login ] = user;
-			} else {
-				unlinkedCoAuthors.push( trailer );
+			const noreply = parseNoreplyEmail( email );
+			if ( ! noreply ) {
+				emailsToResolve.push( email );
+				continue;
+			}
+			if ( skipUser( noreply.login ) ) {
+				continue;
+			}
+			contributors.committers.add( noreply.login );
+			userData[ noreply.login ] = {
+				login: noreply.login,
+				databaseId: noreply.databaseId,
+				name: trailer.name,
+				email: trailer.email,
+			};
+		}
+
+		if ( emailsToResolve.length > 0 ) {
+			const emailToUser =
+				await gh.getUsersByEmails( emailsToResolve );
+			for ( const email of emailsToResolve ) {
+				const trailer = trailersByEmail.get( email );
+				const user = emailToUser[ email ];
+				if ( user?.login && ! skipUser( user.login ) ) {
+					contributors.committers.add( user.login );
+					userData[ user.login ] = user;
+				} else {
+					unlinkedCoAuthors.push( trailer );
+				}
 			}
 		}
 
