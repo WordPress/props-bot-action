@@ -1,5 +1,6 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
+import { escapeMarkdown } from './utils.js';
 
 export default class GitHub {
 	constructor() {
@@ -166,7 +167,7 @@ export default class GitHub {
 					nodes.length > 0 ? nodes[ 0 ] : null;
 			} );
 		} catch ( e ) {
-			core.info( `Error resolving co-author emails: ${ e.message }` );
+			core.warning( `Error resolving co-author emails: ${ e.message }` );
 			emails.forEach( ( email ) => {
 				result[ email.toLowerCase() ] = null;
 			} );
@@ -229,7 +230,9 @@ export default class GitHub {
 				'## Co-authors from commit trailers\n\n' +
 				'The following `Co-authored-by:` trailers were found in commit messages but could not be matched to a GitHub account (the email may be private):\n\n';
 			for ( const coAuthor of contributorsList.unlinkedCoAuthors ) {
-				commentMessage += `- ${ coAuthor.name } <${ coAuthor.email }>\n`;
+				commentMessage += `- ${ escapeMarkdown(
+					coAuthor.name
+				) } <${ escapeMarkdown( coAuthor.email ) }>\n`;
 			}
 			commentMessage +=
 				'\nCommitters, please verify whether these contributors should be credited separately.\n\n';

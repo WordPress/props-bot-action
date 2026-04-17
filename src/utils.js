@@ -55,3 +55,20 @@ export function parseCoAuthorTrailers( message ) {
 
 	return trailers;
 }
+
+/**
+ * Escapes GitHub Flavored Markdown special characters in user-controlled text.
+ *
+ * Used when interpolating commit-trailer names/emails into the bot comment so
+ * they cannot inject links, `@`-mentions, or other markdown into a bot-authored
+ * PR comment.
+ *
+ * @param {string} text The text to escape.
+ * @return {string} The escaped text.
+ */
+export function escapeMarkdown( text ) {
+	return String( text ?? '' ).replace(
+		/([\\`*_{}[\]()<>#+\-.!|@~])/g,
+		'\\$1'
+	);
+}
