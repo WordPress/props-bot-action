@@ -36886,10 +36886,9 @@ class GitHub {
 
 		const queryParts = emails.map(
 			( email, index ) =>
-				`e${ index }: search(query: "in:email ${ email.replace(
-					/"/g,
-					'\\"'
-				) }", type: USER, first: 1) { nodes { ... on User { databaseId login name email } } }`
+				`e${ index }: search(query: ${ JSON.stringify(
+					`in:email ${ email }`
+				) }, type: USER, first: 1) { nodes { ... on User { databaseId login name email } } }`
 		);
 
 		try {
