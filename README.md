@@ -15,6 +15,25 @@ For a full breakdown of the WordPress project's Props best practices, please con
 | `token`  | `$GITHUB_TOKEN` | GitHub token with permission to comment on the pull request.                                                                            |
 | `format` | `git`           | The style of contributor lists to include. Accepted values are `svn`, `git`, or `all`, or any combination of those separated by commas. |
 
+## Permissions
+
+The calling workflow must grant the following permissions to `GITHUB_TOKEN`:
+
+### Public repos
+
+```yaml
+permissions:
+  pull-requests: write # Needed to post the props comment to the PR.
+```
+
+### Private repos
+
+```yaml
+permissions:
+  pull-requests: write # Needed to post the props comment to the PR.
+  issues: read         # Needed to read comments on issues linked to the PR.
+```
+
 ## Example Workflow File
 
 To get started, copy and commit the [`example-props-bot.yml` file](https://github.com/WordPress/props-bot-action/blob/trunk/example-props-bot.yml) into the `.github/workflows` directory of your project's repository.

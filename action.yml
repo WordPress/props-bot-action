@@ -6,7 +6,7 @@ inputs:
         required: false
         default: 'git'
     token:
-        description: 'GitHub secret token.'
+        description: 'GitHub token. Requires `pull-requests: write` permission. On a private repo it additionally needs `issues: read` permission.'
         required: true
         default: ${{ github.token }}
 runs:
