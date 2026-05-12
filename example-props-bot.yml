@@ -50,9 +50,8 @@ jobs:
         name: Generate a list of props
         runs-on: ubuntu-latest
         permissions:
-            # The action needs permission `write` permission for PRs in order to add a comment.
+            # The action needs `write` permission for PRs in order to add a comment.
             pull-requests: write
-            contents: read
         timeout-minutes: 20
         # The job will run when pull requests are open, ready for review and:
         #
