@@ -6,6 +6,7 @@ updates:
           interval: daily
       groups:
           github-actions:
+              applies-to: version-updates
               update-types:
                   - minor
                   - patch
@@ -16,6 +17,7 @@ updates:
           interval: daily
       groups:
           npm-packages:
+              applies-to: version-updates
               update-types:
                   - minor
                   - patch
