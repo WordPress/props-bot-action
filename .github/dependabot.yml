@@ -6,8 +6,6 @@ updates:
           interval: daily
       groups:
           github-actions:
-              patterns:
-                  - '*'
               update-types:
                   - minor
                   - patch
@@ -18,8 +16,6 @@ updates:
           interval: daily
       groups:
           npm-packages:
-              patterns:
-                  - '*'
               update-types:
                   - minor
                   - patch
