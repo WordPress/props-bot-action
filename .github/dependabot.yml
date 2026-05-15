@@ -4,6 +4,7 @@ updates:
       directory: /
       schedule:
           interval: daily
+      open-pull-requests-limit: 20
       groups:
           github-actions:
               applies-to: version-updates
@@ -15,6 +16,7 @@ updates:
       directory: /
       schedule:
           interval: daily
+      open-pull-requests-limit: 20
       groups:
           npm-packages:
               applies-to: version-updates
