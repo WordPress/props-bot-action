@@ -36,7 +36,7 @@
 	},
 	"dependencies": {
 		"@actions/core": "^3.0.1",
-		"@actions/github": "^6.0.1",
+		"@actions/github": "^9.1.1",
 		"@wordpress/npm-package-json-lint-config": "^5.45.0",
 		"node-fetch": "^3.3.2"
 	},
