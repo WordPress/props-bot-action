@@ -274,13 +274,14 @@ export async function getContributorsList() {
  */
 function skipUser( username ) {
 	const skippedUsers = [
-		'github-actions',
-		'dependabot[bot]',
-		'dependabot', // Here for backwards compatibility with old pull requests.
-		'github-advanced-security',
 		'codecov',
+		'coderabbitai',
 		'copilot-pull-request-reviewer',
 		'copilot-swe-agent',
+		'dependabot', // Here for backwards compatibility with old pull requests.
+		'dependabot[bot]',
+		'github-actions',
+		'github-advanced-security',
 	];
 
 	if (
