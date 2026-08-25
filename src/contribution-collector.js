@@ -26,11 +26,14 @@ const contributorTypes = [
 ];
 
 /**
- * List of user data objects.
+ * Map of user data objects, keyed by contributor identity.
  *
- * @type {*[]}
+ * Uses a null-prototype object so untrusted keys (e.g. an author email of
+ * `length` or `__proto__`) cannot collide with built-in properties.
+ *
+ * @type {Object}
  */
-const userData = [];
+const userData = Object.create( null );
 
 /**
  * A list of contributors grouped by the type of contribution.
@@ -88,10 +91,20 @@ export async function getContributorsList() {
 		 * For these, info that may help us guess later.
 		 */
 		if ( null === commit.commit.author.user ) {
-			contributors.committers.add( commit.commit.author.email );
-			userData[ commit.commit.author.email ] = {
+			const email = commit.commit.author.email;
+
+			if ( ! isWellFormedEmail( email ) ) {
+				core.warning(
+					`Ignoring an unlinked commit with an untrusted author email: ${ email }`
+				);
+				hasGhostActivity = true;
+				continue;
+			}
+
+			contributors.committers.add( email );
+			userData[ email ] = {
 				name: commit.commit.author.name,
-				email: commit.commit.author.email,
+				email,
 			};
 		} else {
 			if ( skipUser( commit.commit.author.user.login ) ) {
@@ -228,8 +241,8 @@ export async function getContributorsList() {
 
 	contributorTypes.forEach( ( priority ) => {
 		// Skip an empty set of contributors.
-		if ( contributors[ priority ].length === 0 ) {
-			return [];
+		if ( contributors[ priority ].size === 0 ) {
+			return;
 		}
 
 		[ ...contributors[ priority ] ]
@@ -263,6 +276,25 @@ export async function getContributorsList() {
 	core.debug( contributorLists );
 
 	return contributorLists;
+}
+
+/**
+ * Checks whether an unlinked commit author email is a single, well-formed
+ * address.
+ *
+ * The raw git author email is untrusted free text rendered verbatim into the
+ * props comment, so only a single, well-formed address is accepted as a
+ * contributor identity.
+ *
+ * @param {string} email The commit author email to validate.
+ *
+ * @return {boolean} true if the email is a single, well-formed address.
+ */
+function isWellFormedEmail( email ) {
+	return (
+		'string' === typeof email &&
+		/^[^\s@,<>"]+@[^\s@,<>"]+\.[^\s@,<>"]+$/.test( email )
+	);
 }
 
 /**
