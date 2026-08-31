@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
+
 import GitHub from '../src/github.js';
 
 const context = {
@@ -18,12 +19,30 @@ const contributorsList = {
 	hasGhostActivity: false,
 };
 
+/**
+ * The message `contributorsList` renders to with `format: all`.
+ *
+ * Asserted in full so a change to the intro, either props section, or the
+ * footer has to be made deliberately.
+ *
+ * @type {string}
+ */
+const expectedMessage =
+	'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label.\n\n' +
+	'## Core SVN\n\n' +
+	'Core Committers: Use this line as a base for the props when committing in SVN:\n' +
+	'```\nProps dotorguser.\n```\n\n' +
+	'## GitHub Merge commits\n\n' +
+	"If you're merging code through a pull request on GitHub, copy and paste the following into the bottom of the merge commit message.\n\n" +
+	'```\nCo-authored-by: someone <dotorguser@git.wordpress.org>\n```\n\n' +
+	"**To understand the WordPress project's expectations around crediting contributors, please [review the Contributor Attribution page in the Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).**\n";
+
 let outputDir;
 let outputFile;
 
 /**
  * Builds a GitHub instance with a stubbed Octokit that records the calls made
- * to the comment endpoints.
+ * to the comment endpoints, along with the body they were given.
  *
  * @param {string} [postComment] The value of the `post-comment` input. The
  *                               input is left unset when omitted.
@@ -38,7 +57,12 @@ function createGitHub( postComment ) {
 	}
 
 	const gh = new GitHub();
-	const calls = { listComments: 0, createComment: 0, updateComment: 0 };
+	const calls = {
+		listComments: 0,
+		createComment: 0,
+		updateComment: 0,
+		postedBody: undefined,
+	};
 
 	gh.octokit = {
 		paginate: {
@@ -50,11 +74,13 @@ function createGitHub( postComment ) {
 		rest: {
 			issues: {
 				listComments: () => {},
-				createComment: () => {
+				createComment: ( { body } ) => {
 					calls.createComment++;
+					calls.postedBody = body;
 				},
-				updateComment: () => {
+				updateComment: ( { body } ) => {
 					calls.updateComment++;
+					calls.postedBody = body;
 				},
 			},
 		},
@@ -98,7 +124,7 @@ describe( 'commentProps', () => {
 		delete process.env[ 'INPUT_POST-COMMENT' ];
 	} );
 
-	it( 'posts the comment by default', async () => {
+	it( 'posts the comment by default and outputs the body it posted', async () => {
 		const { gh, calls } = createGitHub();
 
 		assert.equal( gh.postComment, true );
@@ -106,10 +132,11 @@ describe( 'commentProps', () => {
 		await gh.commentProps( { context, contributorsList } );
 
 		assert.equal( calls.createComment, 1 );
-		assert.match( getOutput( 'comment-body' ), /Props dotorguser\./ );
+		assert.equal( calls.postedBody, expectedMessage );
+		assert.equal( getOutput( 'comment-body' ), calls.postedBody );
 	} );
 
-	it( 'sets the output without posting when `post-comment` is false', async () => {
+	it( 'outputs the same body without posting when `post-comment` is false', async () => {
 		const { gh, calls } = createGitHub( 'false' );
 
 		assert.equal( gh.postComment, false );
@@ -120,11 +147,12 @@ describe( 'commentProps', () => {
 			listComments: 0,
 			createComment: 0,
 			updateComment: 0,
+			postedBody: undefined,
 		} );
-		assert.match( getOutput( 'comment-body' ), /Props dotorguser\./ );
+		assert.equal( getOutput( 'comment-body' ), expectedMessage );
 	} );
 
-	it( 'sets an empty output when there are no contributors', async () => {
+	it( 'outputs an empty body when there are no contributors', async () => {
 		const { gh, calls } = createGitHub();
 
 		await gh.commentProps( { context, contributorsList: undefined } );
