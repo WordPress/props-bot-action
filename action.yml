@@ -10,7 +10,7 @@ inputs:
         required: false
         default: 'true'
     token:
-        description: 'GitHub token. Requires `pull-requests: write` permission when posting the comment. On a private repo it additionally requires `issues: read` permission.'
+        description: 'GitHub token. Requires `pull-requests: read` permission, or `write` when posting the comment. On a private repo it additionally requires `issues: read` permission.'
         required: true
         default: ${{ github.token }}
 outputs:

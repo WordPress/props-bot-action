@@ -54,7 +54,7 @@
 		"lint:pkg-json": "wp-scripts lint-pkg-json",
 		"format": "wp-scripts format",
 		"prepare": "ncc build index.js -o dist --license licenses.txt",
-		"test": "jest --passWithNoTests",
+		"test": "node --test \"tests/**/*.test.mjs\"",
 		"all": "npm-run-all lint prepare test"
 	}
 }

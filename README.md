@@ -12,7 +12,7 @@ For a full breakdown of the WordPress project's Props best practices, please con
 ### Required configurations
 | Key            | Default         | Description                                                                                                                            |
 |----------------|-----------------|----------------------------------------------------------------------------------------------------------------------------------------|
-| `token`        | `$GITHUB_TOKEN` | GitHub token with permission to comment on the pull request.                                                                           |
+| `token`        | `$GITHUB_TOKEN` | GitHub token used to read the pull request, and to comment on it unless `post-comment` is `false`.                                      |
 | `format`       | `git`           | The style of contributor lists to include. Accepted values are `svn`, `git`, or `all`, or any combination of those separated by commas. |
 | `post-comment` | `true`          | Whether to post the props comment. When `false`, the message is still rendered and exposed through the `comment-body` output.           |
 
@@ -35,14 +35,22 @@ permissions:
   pull-requests: write # Needed to post the props comment to the PR.
 ```
 
-With `post-comment: false` the action performs no writes, so `pull-requests: write` is only needed by whatever posts the message instead.
-
 ### Private repos
 
 ```yaml
 permissions:
   pull-requests: write # Needed to post the props comment to the PR.
   issues: read         # Needed to read comments on issues linked to the PR.
+```
+
+### With `post-comment: false`
+
+The action still reads the pull request to build the message, it just does not write. Whatever posts the message needs `pull-requests: write` instead.
+
+```yaml
+permissions:
+  pull-requests: read # Needed to read the PR's commits, reviews, and comments.
+  issues: read        # Private repos only. Needed to read comments on issues linked to the PR.
 ```
 
 ## Example Workflow File
