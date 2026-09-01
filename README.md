@@ -10,11 +10,17 @@ For a full breakdown of the WordPress project's Props best practices, please con
 ## Configuration
 
 ### Required configurations
-| Key            | Default         | Description                                                                                                                            |
-|----------------|-----------------|----------------------------------------------------------------------------------------------------------------------------------------|
-| `token`        | `$GITHUB_TOKEN` | GitHub token used to read the pull request, and to comment on it unless `post-comment` is `false`.                                      |
-| `format`       | `git`           | The style of contributor lists to include. Accepted values are `svn`, `git`, or `all`, or any combination of those separated by commas. |
-| `post-comment` | `true`          | Whether to post the props comment. When `false`, the message is still rendered and exposed through the `comment-body` output.           |
+
+| Key     | Default         | Description                                                                                       |
+|---------|-----------------|---------------------------------------------------------------------------------------------------|
+| `token` | `$GITHUB_TOKEN` | GitHub token used to read the pull request, and to comment on it unless `post-comment` is `false`. |
+
+### Optional configurations
+
+| Key            | Default | Description                                                                                                                            |
+|----------------|---------|------------------------------------------------------------------------------------------------------------------------------------------|
+| `format`       | `git`   | The style of contributor lists to include. Accepted values are `svn`, `git`, or `all`, or any combination of those separated by commas. |
+| `post-comment` | `true`  | Whether to post the props comment. When `false`, the message is still rendered and exposed through the `comment-body` output.           |
 
 ## Outputs
 
