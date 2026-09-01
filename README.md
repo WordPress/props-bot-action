@@ -10,10 +10,23 @@ For a full breakdown of the WordPress project's Props best practices, please con
 ## Configuration
 
 ### Required configurations
-| Key      | Default         | Description                                                                                                                             |
-|----------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------|
-| `token`  | `$GITHUB_TOKEN` | GitHub token with permission to comment on the pull request.                                                                            |
-| `format` | `git`           | The style of contributor lists to include. Accepted values are `svn`, `git`, or `all`, or any combination of those separated by commas. |
+
+| Key     | Default         | Description                                                                                                                                                             |
+|---------|-----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `token` | `$GITHUB_TOKEN` | GitHub token with permission to comment on the pull request. When `post-comment` is `false`, only `pull-requests: read` is required, plus `issues: read` on a private repository. |
+
+### Optional configurations
+
+| Key            | Default | Description                                                                                                                            |
+|----------------|---------|------------------------------------------------------------------------------------------------------------------------------------------|
+| `format`       | `git`   | The style of contributor lists to include. Accepted values are `svn`, `git`, or `all`, or any combination of those separated by commas. |
+| `post-comment` | `true`  | Whether to post the props in a comment. When `false`, the generated message is only returned through the `comment-body` output.        |
+
+## Outputs
+
+| Key            | Description                                                                                        |
+|----------------|------------------------------------------------------------------------------------------------------|
+| `comment-body` | The fully rendered props message in the `format` specified. Empty when no contributors were found. |
 
 ## Permissions
 
@@ -32,6 +45,18 @@ permissions:
 permissions:
   pull-requests: write # Needed to post the props comment to the PR.
   issues: read         # Needed to read comments on issues linked to the PR.
+```
+
+### Collecting props without a PR comment
+
+When `post-comment` is set to `false`, the action will not post a comment to the pull request and only returns the generated message through the `comment-body` output.
+
+Because no comments are posted, the `pull-requests` permission can be downgraded from `write` to `read`.
+
+```yaml
+permissions:
+  pull-requests: read # Needed to read the PR's commits, reviews, and comments.
+  issues: read        # Private repos only. Needed to read comments on issues linked to the PR.
 ```
 
 ## Example Workflow File

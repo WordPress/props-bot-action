@@ -5,10 +5,17 @@ inputs:
         description: 'Format of the message. use `git`, `svn`, `all`, or a comma separated combination of those.'
         required: false
         default: 'git'
+    post-comment:
+        description: 'Whether to post the generated list of props as a comment. No comment is posted when `false`, the message is only returned through the `comment-body` output.'
+        required: false
+        default: 'true'
     token:
-        description: 'GitHub token. Requires `pull-requests: write` permission. On a private repo it additionally requires `issues: read` permission.'
+        description: 'GitHub token. Requires `pull-requests: read` permission, or `write` when `post-comment` is `true`. On a private repository, it additionally requires `issues: read` permission.'
         required: true
         default: ${{ github.token }}
+outputs:
+    comment-body:
+        description: 'The fully rendered props message in the `format` specified. Empty when no contributors were found.'
 runs:
     using: 'node24'
     main: 'dist/index.js'

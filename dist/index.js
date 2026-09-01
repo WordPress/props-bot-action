@@ -34210,16 +34210,16 @@ function file_command_issueFileCommand(command, message) {
     if (!filePath) {
         throw new Error(`Unable to find environment variable for file command ${command}`);
     }
-    if (!fs.existsSync(filePath)) {
+    if (!external_fs_namespaceObject.existsSync(filePath)) {
         throw new Error(`Missing file at path: ${filePath}`);
     }
-    fs.appendFileSync(filePath, `${toCommandValue(message)}${os.EOL}`, {
+    external_fs_namespaceObject.appendFileSync(filePath, `${utils_toCommandValue(message)}${external_os_namespaceObject.EOL}`, {
         encoding: 'utf8'
     });
 }
 function file_command_prepareKeyValueMessage(key, value) {
-    const delimiter = `ghadelimiter_${crypto.randomUUID()}`;
-    const convertedValue = toCommandValue(value);
+    const delimiter = `ghadelimiter_${external_crypto_namespaceObject.randomUUID()}`;
+    const convertedValue = utils_toCommandValue(value);
     // These should realistically never happen, but just in case someone finds a
     // way to exploit uuid generation let's not allow keys or values that contain
     // the delimiter.
@@ -34229,7 +34229,7 @@ function file_command_prepareKeyValueMessage(key, value) {
     if (convertedValue.includes(delimiter)) {
         throw new Error(`Unexpected input: value should not contain the delimiter "${delimiter}"`);
     }
-    return `${key}<<${delimiter}${os.EOL}${convertedValue}${os.EOL}${delimiter}`;
+    return `${key}<<${delimiter}${external_os_namespaceObject.EOL}${convertedValue}${external_os_namespaceObject.EOL}${delimiter}`;
 }
 //# sourceMappingURL=file-command.js.map
 ;// CONCATENATED MODULE: external "path"
@@ -36851,10 +36851,10 @@ function getBooleanInput(name, options) {
 function setOutput(name, value) {
     const filePath = process.env['GITHUB_OUTPUT'] || '';
     if (filePath) {
-        return issueFileCommand('OUTPUT', prepareKeyValueMessage(name, value));
+        return file_command_issueFileCommand('OUTPUT', file_command_prepareKeyValueMessage(name, value));
     }
-    process.stdout.write(os.EOL);
-    issueCommand('set-output', { name }, toCommandValue(value));
+    process.stdout.write(external_os_namespaceObject.EOL);
+    command_issueCommand('set-output', { name }, utils_toCommandValue(value));
 }
 /**
  * Enables or disables the echoing of commands into stdout for the rest of the step.
@@ -41350,6 +41350,14 @@ class github_GitHub {
 		} else {
 			error( 'A valid props format was not provided.' );
 		}
+
+		/*
+		 * `getBooleanInput()` throws on an empty value, which happens when a
+		 * caller passes the input explicitly without a value.
+		 */
+		this.postComment =
+			getInput( 'post-comment' ) === '' ||
+			getBooleanInput( 'post-comment' );
 	}
 
 	/**
@@ -41459,8 +41467,10 @@ class github_GitHub {
 	}
 
 	/**
-	 * Adds a comment to a PR with the list of contributors.
+	 * Renders the list of contributors and adds it to a PR as a comment.
 	 * - If a comment already exists, it will be updated.
+	 * - The rendered message is always exposed through the `comment-body` output.
+	 * - When the `post-comment` input is `false`, nothing is posted.
 	 *
 	 * @param {Object} options                  The options for commenting.
 	 * @param {Object} options.context          The context object containing information about the GitHub event.
@@ -41471,6 +41481,7 @@ class github_GitHub {
 	async commentProps( { context, contributorsList } ) {
 		if ( ! contributorsList ) {
 			info( 'No contributors were provided.' );
+			setOutput( 'comment-body', '' );
 			return;
 		}
 
@@ -41552,6 +41563,19 @@ class github_GitHub {
 
 		commentMessage +=
 			"**To understand the WordPress project's expectations around crediting contributors, please [review the Contributor Attribution page in the Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).**\n";
+
+		/*
+		 * Set before any API call so consumers receive the message on every
+		 * path, including when posting fails.
+		 */
+		setOutput( 'comment-body', commentMessage );
+
+		if ( ! this.postComment ) {
+			info(
+				'Commenting is disabled. The message is available through the `comment-body` output.'
+			);
+			return;
+		}
 
 		const comment = {
 			...commentInfo,
