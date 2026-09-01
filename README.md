@@ -28,8 +28,6 @@ For a full breakdown of the WordPress project's Props best practices, please con
 |----------------|------------------------------------------------------------------------------------------------------|
 | `comment-body` | The fully rendered props message in the `format` specified. Empty when no contributors were found. |
 
-Set as soon as the message is rendered, so it is available whether or not the action posts, and even when posting fails.
-
 ## Permissions
 
 The calling workflow must grant the following permissions to `GITHUB_TOKEN`:
@@ -49,9 +47,11 @@ permissions:
   issues: read         # Needed to read comments on issues linked to the PR.
 ```
 
-### With `post-comment: false`
+### Collecting props without a PR comment
 
-The action still reads the pull request to build the message, it just does not write. Whatever posts the message needs `pull-requests: write` instead.
+When `post-comment` is set to `false`, the action will not post a comment to the pull request and only returns the generated message through the `comment-body` output.
+
+Because no comments are posted, the `pull-requests` permission can be downgraded from `write` to `read`.
 
 ```yaml
 permissions:
