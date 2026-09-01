@@ -11,9 +11,9 @@ For a full breakdown of the WordPress project's Props best practices, please con
 
 ### Required configurations
 
-| Key     | Default         | Description                                                                                                                         |
-|---------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| `token` | `$GITHUB_TOKEN` | GitHub token with permission to comment on the pull request. When `post-comment` is `false`, only `pull-requests: read` is required. |
+| Key     | Default         | Description                                                                                                                                                             |
+|---------|-----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `token` | `$GITHUB_TOKEN` | GitHub token with permission to comment on the pull request. When `post-comment` is `false`, only `pull-requests: read` is required, plus `issues: read` on a private repository. |
 
 ### Optional configurations
 
