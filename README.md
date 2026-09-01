@@ -11,22 +11,22 @@ For a full breakdown of the WordPress project's Props best practices, please con
 
 ### Required configurations
 
-| Key     | Default         | Description                                                                                       |
-|---------|-----------------|---------------------------------------------------------------------------------------------------|
-| `token` | `$GITHUB_TOKEN` | GitHub token used to read the pull request, and to comment on it unless `post-comment` is `false`. |
+| Key     | Default         | Description                                                                                                                         |
+|---------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------|
+| `token` | `$GITHUB_TOKEN` | GitHub token with permission to comment on the pull request. When `post-comment` is `false`, only `pull-requests: read` is required. |
 
 ### Optional configurations
 
 | Key            | Default | Description                                                                                                                            |
 |----------------|---------|------------------------------------------------------------------------------------------------------------------------------------------|
 | `format`       | `git`   | The style of contributor lists to include. Accepted values are `svn`, `git`, or `all`, or any combination of those separated by commas. |
-| `post-comment` | `true`  | Whether to post the props comment. When `false`, the message is still rendered and exposed through the `comment-body` output.           |
+| `post-comment` | `true`  | Whether to post the props in a comment. When `false`, the generated message is only returned through the `comment-body` output.        |
 
 ## Outputs
 
-| Key            | Description                                                        |
-|----------------|--------------------------------------------------------------------|
-| `comment-body` | The rendered props message. Empty when no contributors were found. |
+| Key            | Description                                                                                        |
+|----------------|------------------------------------------------------------------------------------------------------|
+| `comment-body` | The fully rendered props message in the `format` specified. Empty when no contributors were found. |
 
 Set as soon as the message is rendered, so it is available whether or not the action posts, and even when posting fails.
 

@@ -6,16 +6,16 @@ inputs:
         required: false
         default: 'git'
     post-comment:
-        description: 'Whether to post the props comment. When `false`, the message is still rendered and exposed through the `comment-body` output, but nothing is posted.'
+        description: 'Whether to post the generated list of props as a comment. No comment is posted when `false`, the message is only returned through the `comment-body` output.'
         required: false
         default: 'true'
     token:
-        description: 'GitHub token. Requires `pull-requests: read` permission, or `write` when posting the comment. On a private repo it additionally requires `issues: read` permission.'
+        description: 'GitHub token. Requires `pull-requests: read` permission, or `write` when `post-comment` is `true`. On a private repository, it additionally requires `issues: read` permission.'
         required: true
         default: ${{ github.token }}
 outputs:
     comment-body:
-        description: 'The rendered props message. Empty when no contributors were found.'
+        description: 'The fully rendered props message in the `format` specified. Empty when no contributors were found.'
 runs:
     using: 'node24'
     main: 'dist/index.js'
