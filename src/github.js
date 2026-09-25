@@ -24,6 +24,14 @@ export default class GitHub {
 		} else {
 			core.error( 'A valid props format was not provided.' );
 		}
+
+		/*
+		 * `getBooleanInput()` throws on an empty value, which happens when a
+		 * caller passes the input explicitly without a value.
+		 */
+		this.postComment =
+			core.getInput( 'post-comment' ) === '' ||
+			core.getBooleanInput( 'post-comment' );
 	}
 
 	/**
@@ -133,8 +141,10 @@ export default class GitHub {
 	}
 
 	/**
-	 * Adds a comment to a PR with the list of contributors.
+	 * Renders the list of contributors and adds it to a PR as a comment.
 	 * - If a comment already exists, it will be updated.
+	 * - The rendered message is always exposed through the `comment-body` output.
+	 * - When the `post-comment` input is `false`, nothing is posted.
 	 *
 	 * @param {Object} options                  The options for commenting.
 	 * @param {Object} options.context          The context object containing information about the GitHub event.
@@ -145,6 +155,7 @@ export default class GitHub {
 	async commentProps( { context, contributorsList } ) {
 		if ( ! contributorsList ) {
 			core.info( 'No contributors were provided.' );
+			core.setOutput( 'comment-body', '' );
 			return;
 		}
 
@@ -226,6 +237,19 @@ export default class GitHub {
 
 		commentMessage +=
 			"**To understand the WordPress project's expectations around crediting contributors, please [review the Contributor Attribution page in the Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).**\n";
+
+		/*
+		 * Set before any API call so consumers receive the message on every
+		 * path, including when posting fails.
+		 */
+		core.setOutput( 'comment-body', commentMessage );
+
+		if ( ! this.postComment ) {
+			core.info(
+				'Commenting is disabled. The message is available through the `comment-body` output.'
+			);
+			return;
+		}
 
 		const comment = {
 			...commentInfo,

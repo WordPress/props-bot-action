@@ -77,6 +77,8 @@ jobs:
             #          token: ${{ secrets.CUSTOM_PROPS_BOT_TOKEN }}
             #          # Specify the prop format to display. Default is `git`. Values should be comma separated.
             #          format: 'all'
+            #          # Render the message without posting it, for workflows that post it themselves.
+            #          post-comment: false
 
             - name: Remove the props-bot label
               uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
