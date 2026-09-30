@@ -66,3 +66,5 @@ To get started, copy and commit the [`example-props-bot.yml` file](https://githu
 The example file is generously documented so it can be implemented and adjusted to suit the needs of your project.
 
 If you need help implementing, you [can fill out a request for help](https://github.com/WordPress/props-bot-action/issues/new?assignees=desrosj&labels=%5BType%5D+Help+Request&projects=&template=3-request-to-help-implement.yml).
+
+<!-- gha-poc-props -->
