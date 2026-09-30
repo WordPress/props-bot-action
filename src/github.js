@@ -1,6 +1,22 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 
+/**
+ * Hidden marker identifying the comment this action posts.
+ *
+ * @type {string}
+ */
+export const COMMENT_MARKER = '<!-- props-bot -->';
+
+/**
+ * Opening sentence of the intro, which comments posted before the marker
+ * existed start with.
+ *
+ * @type {string}
+ */
+const LEGACY_COMMENT_START =
+	'The following accounts have interacted with this PR and/or linked issues.';
+
 export default class GitHub {
 	constructor() {
 		const token =
@@ -32,6 +48,12 @@ export default class GitHub {
 		this.postComment =
 			core.getInput( 'post-comment' ) === '' ||
 			core.getBooleanInput( 'post-comment' );
+
+		// A posted comment always keeps the intro that explains it.
+		this.includeIntro =
+			this.postComment ||
+			core.getInput( 'include-intro' ) === '' ||
+			core.getBooleanInput( 'include-intro' );
 	}
 
 	/**
@@ -145,6 +167,7 @@ export default class GitHub {
 	 * - If a comment already exists, it will be updated.
 	 * - The rendered message is always exposed through the `comment-body` output.
 	 * - When the `post-comment` input is `false`, nothing is posted.
+	 * - When `include-intro` is also `false`, the output omits the intro.
 	 *
 	 * @param {Object} options                  The options for commenting.
 	 * @param {Object} options.context          The context object containing information about the GitHub event.
@@ -177,8 +200,12 @@ export default class GitHub {
 			issue_number: prNumber,
 		};
 
-		let commentMessage =
-			'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label.\n\n';
+		let commentMessage = '';
+
+		if ( this.includeIntro ) {
+			commentMessage +=
+				'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label.\n\n';
+		}
 
 		if ( contributorsList.unlinked.length > 0 ) {
 			commentMessage +=
@@ -251,9 +278,13 @@ export default class GitHub {
 			return;
 		}
 
+		/*
+		 * The marker stays out of the output, so a comment a consumer builds
+		 * from it is never mistaken for this one.
+		 */
 		const comment = {
 			...commentInfo,
-			body: commentMessage,
+			body: `${ COMMENT_MARKER }\n${ commentMessage }`,
 		};
 
 		for await ( const response of this.octokit.paginate.iterator(
@@ -263,9 +294,8 @@ export default class GitHub {
 			for ( const currentComment of response.data ) {
 				if (
 					currentComment.user.type === 'Bot' &&
-					currentComment.body.includes(
-						'The following accounts have interacted with this PR and/or linked issues.'
-					)
+					( currentComment.body.includes( COMMENT_MARKER ) ||
+						currentComment.body.startsWith( LEGACY_COMMENT_START ) )
 				) {
 					commentId = currentComment.id;
 					break;

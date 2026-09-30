@@ -9,6 +9,10 @@ inputs:
         description: 'Whether to post the generated list of props as a comment. No comment is posted when `false`, the message is only returned through the `comment-body` output.'
         required: false
         default: 'true'
+    include-intro:
+        description: 'Whether `comment-body` starts with the intro paragraph. Only applies when `post-comment` is `false`; a posted comment always keeps it.'
+        required: false
+        default: 'true'
     token:
         description: 'GitHub token. Requires `pull-requests: read` permission, or `write` when `post-comment` is `true`. On a private repository, it additionally requires `issues: read` permission.'
         required: true
