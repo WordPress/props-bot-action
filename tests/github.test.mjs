@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
-import GitHub from '../src/github.js';
+import GitHub, { COMMENT_MARKER } from '../src/github.js';
 
 const context = {
 	eventName: 'pull_request_target',
@@ -20,15 +20,13 @@ const contributorsList = {
 };
 
 /**
- * The message `contributorsList` renders to with `format: all`.
- *
- * Asserted in full so a change to the intro, either props section, or the
- * footer has to be made deliberately.
- *
- * @type {string}
+ * The message `contributorsList` renders to with `format: all`, split at the
+ * intro. Asserted in full so a change to any part has to be made deliberately.
  */
-const expectedMessage =
-	'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label.\n\n' +
+const intro =
+	'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label.\n\n';
+
+const expectedList =
 	'## Core SVN\n\n' +
 	'Core Committers: Use this line as a base for the props when committing in SVN:\n' +
 	'```\nProps dotorguser.\n```\n\n' +
@@ -37,30 +35,54 @@ const expectedMessage =
 	'```\nCo-authored-by: someone <dotorguser@git.wordpress.org>\n```\n\n' +
 	"**To understand the WordPress project's expectations around crediting contributors, please [review the Contributor Attribution page in the Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).**\n";
 
+const expectedMessage = intro + expectedList;
+
+const expectedPostedBody = `${ COMMENT_MARKER }\n${ expectedMessage }`;
+
 let outputDir;
 let outputFile;
+
+/**
+ * Sets an action input, or unsets it when the value is undefined.
+ *
+ * @param {string}           name  The input name.
+ * @param {string|undefined} value The input value.
+ */
+function setInput( name, value ) {
+	const key = `INPUT_${ name.toUpperCase() }`;
+
+	if ( undefined === value ) {
+		delete process.env[ key ];
+	} else {
+		process.env[ key ] = value;
+	}
+}
 
 /**
  * Builds a GitHub instance with a stubbed Octokit that records the calls made
  * to the comment endpoints, along with the body they were given.
  *
- * @param {string} [postComment] The value of the `post-comment` input. The
- *                               input is left unset when omitted.
+ * @param {Object} [options]                  Options.
+ * @param {string} [options.postComment]      The `post-comment` input. Unset when omitted.
+ * @param {string} [options.includeIntro]     The `include-intro` input. Unset when omitted.
+ * @param {Array}  [options.existingComments] Comments already on the pull request.
  *
  * @return {Object} The instance and the recorded calls.
  */
-function createGitHub( postComment ) {
-	if ( undefined === postComment ) {
-		delete process.env[ 'INPUT_POST-COMMENT' ];
-	} else {
-		process.env[ 'INPUT_POST-COMMENT' ] = postComment;
-	}
+function createGitHub( {
+	postComment,
+	includeIntro,
+	existingComments = [],
+} = {} ) {
+	setInput( 'post-comment', postComment );
+	setInput( 'include-intro', includeIntro );
 
 	const gh = new GitHub();
 	const calls = {
 		listComments: 0,
 		createComment: 0,
 		updateComment: 0,
+		updatedCommentId: undefined,
 		postedBody: undefined,
 	};
 
@@ -68,7 +90,7 @@ function createGitHub( postComment ) {
 		paginate: {
 			iterator: () => {
 				calls.listComments++;
-				return [ { data: [] } ];
+				return [ { data: existingComments } ];
 			},
 		},
 		rest: {
@@ -78,8 +100,9 @@ function createGitHub( postComment ) {
 					calls.createComment++;
 					calls.postedBody = body;
 				},
-				updateComment: ( { body } ) => {
+				updateComment: ( { comment_id: commentId, body } ) => {
 					calls.updateComment++;
+					calls.updatedCommentId = commentId;
 					calls.postedBody = body;
 				},
 			},
@@ -122,9 +145,10 @@ describe( 'commentProps', () => {
 		delete process.env.INPUT_TOKEN;
 		delete process.env.INPUT_FORMAT;
 		delete process.env[ 'INPUT_POST-COMMENT' ];
+		delete process.env[ 'INPUT_INCLUDE-INTRO' ];
 	} );
 
-	it( 'posts the comment by default and outputs the body it posted', async () => {
+	it( 'posts the comment with the marker by default and outputs the body without it', async () => {
 		const { gh, calls } = createGitHub();
 
 		assert.equal( gh.postComment, true );
@@ -132,12 +156,72 @@ describe( 'commentProps', () => {
 		await gh.commentProps( { context, contributorsList } );
 
 		assert.equal( calls.createComment, 1 );
-		assert.equal( calls.postedBody, expectedMessage );
-		assert.equal( getOutput( 'comment-body' ), calls.postedBody );
+		assert.equal( calls.postedBody, expectedPostedBody );
+		assert.equal( getOutput( 'comment-body' ), expectedMessage );
 	} );
 
-	it( 'outputs the same body without posting when `post-comment` is false', async () => {
-		const { gh, calls } = createGitHub( 'false' );
+	it( 'updates a comment identified by the marker', async () => {
+		const { gh, calls } = createGitHub( {
+			existingComments: [
+				{ id: 1, user: { type: 'Bot' }, body: 'Unrelated.' },
+				{
+					id: 2,
+					user: { type: 'Bot' },
+					body: `${ COMMENT_MARKER }\nOld.`,
+				},
+			],
+		} );
+
+		await gh.commentProps( { context, contributorsList } );
+
+		assert.equal( calls.createComment, 0 );
+		assert.equal( calls.updatedCommentId, 2 );
+		assert.equal( calls.postedBody, expectedPostedBody );
+	} );
+
+	it( 'updates a comment posted before the marker existed', async () => {
+		const { gh, calls } = createGitHub( {
+			existingComments: [
+				{ id: 3, user: { type: 'Bot' }, body: expectedMessage },
+			],
+		} );
+
+		await gh.commentProps( { context, contributorsList } );
+
+		assert.equal( calls.createComment, 0 );
+		assert.equal( calls.updatedCommentId, 3 );
+	} );
+
+	it( 'does not update a comment that only embeds the message', async () => {
+		const { gh, calls } = createGitHub( {
+			existingComments: [
+				{
+					id: 4,
+					user: { type: 'Bot' },
+					body: `## Automation\n\n${ expectedMessage }`,
+				},
+				{
+					id: 7,
+					user: { type: 'Bot' },
+					body: `Quoting \`${ COMMENT_MARKER }\` in a review.`,
+				},
+				{
+					id: 6,
+					user: { type: 'Bot' },
+					body: `${ expectedMessage }\n## Other checks\n`,
+				},
+				{ id: 5, user: { type: 'User' }, body: expectedPostedBody },
+			],
+		} );
+
+		await gh.commentProps( { context, contributorsList } );
+
+		assert.equal( calls.updateComment, 0 );
+		assert.equal( calls.createComment, 1 );
+	} );
+
+	it( 'outputs the body without posting when `post-comment` is false', async () => {
+		const { gh, calls } = createGitHub( { postComment: 'false' } );
 
 		assert.equal( gh.postComment, false );
 
@@ -147,8 +231,29 @@ describe( 'commentProps', () => {
 			listComments: 0,
 			createComment: 0,
 			updateComment: 0,
+			updatedCommentId: undefined,
 			postedBody: undefined,
 		} );
+		assert.equal( getOutput( 'comment-body' ), expectedMessage );
+	} );
+
+	it( 'omits the intro when `include-intro` is false and nothing is posted', async () => {
+		const { gh } = createGitHub( {
+			postComment: 'false',
+			includeIntro: 'false',
+		} );
+
+		await gh.commentProps( { context, contributorsList } );
+
+		assert.equal( getOutput( 'comment-body' ), expectedList );
+	} );
+
+	it( 'keeps the intro in a posted comment when `include-intro` is false', async () => {
+		const { gh, calls } = createGitHub( { includeIntro: 'false' } );
+
+		await gh.commentProps( { context, contributorsList } );
+
+		assert.equal( calls.postedBody, expectedPostedBody );
 		assert.equal( getOutput( 'comment-body' ), expectedMessage );
 	} );
 

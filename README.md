@@ -21,6 +21,7 @@ For a full breakdown of the WordPress project's Props best practices, please con
 |----------------|---------|------------------------------------------------------------------------------------------------------------------------------------------|
 | `format`       | `git`   | The style of contributor lists to include. Accepted values are `svn`, `git`, or `all`, or any combination of those separated by commas. |
 | `post-comment` | `true`  | Whether to post the props in a comment. When `false`, the generated message is only returned through the `comment-body` output.        |
+| `include-intro` | `true` | Whether `comment-body` starts with the intro paragraph. Only applies when `post-comment` is `false`; a posted comment always keeps it. |
 
 ## Outputs
 
@@ -50,6 +51,8 @@ permissions:
 ### Collecting props without a PR comment
 
 When `post-comment` is set to `false`, the action will not post a comment to the pull request and only returns the generated message through the `comment-body` output.
+
+Set `include-intro` to `false` to drop the intro paragraph when your workflow posts the message itself and explains it in its own words.
 
 Because no comments are posted, the `pull-requests` permission can be downgraded from `write` to `read`.
 
