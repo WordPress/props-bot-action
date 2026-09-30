@@ -304,7 +304,7 @@ export default class GitHub {
 			for ( const currentComment of response.data ) {
 				if (
 					currentComment.user.type === 'Bot' &&
-					( currentComment.body.includes( COMMENT_MARKER ) ||
+					( currentComment.body.startsWith( COMMENT_MARKER ) ||
 						isLegacyComment( currentComment.body ) )
 				) {
 					commentId = currentComment.id;

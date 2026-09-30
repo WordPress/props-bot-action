@@ -201,6 +201,11 @@ describe( 'commentProps', () => {
 					body: `## Automation\n\n${ expectedMessage }`,
 				},
 				{
+					id: 7,
+					user: { type: 'Bot' },
+					body: `Quoting \`${ COMMENT_MARKER }\` in a review.`,
+				},
+				{
 					id: 6,
 					user: { type: 'Bot' },
 					body: `${ expectedMessage }\n## Other checks\n`,
