@@ -200,6 +200,11 @@ describe( 'commentProps', () => {
 					user: { type: 'Bot' },
 					body: `## Automation\n\n${ expectedMessage }`,
 				},
+				{
+					id: 6,
+					user: { type: 'Bot' },
+					body: `${ expectedMessage }\n## Other checks\n`,
+				},
 				{ id: 5, user: { type: 'User' }, body: expectedPostedBody },
 			],
 		} );

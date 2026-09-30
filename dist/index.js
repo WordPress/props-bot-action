@@ -41336,13 +41336,23 @@ function getOctokit(token, options, ...additionalPlugins) {
 const COMMENT_MARKER = '<!-- props-bot -->';
 
 /**
- * Opening sentence of the intro, which comments posted before the marker
- * existed start with.
+ * Whether a comment was posted by a version of this action predating the
+ * marker. It must be a whole props message, so a comment a consumer built
+ * around the message is left alone.
  *
- * @type {string}
+ * @param {string} body The comment body.
+ * @return {boolean} Whether the comment is a legacy props comment.
  */
-const LEGACY_COMMENT_START =
-	'The following accounts have interacted with this PR and/or linked issues.';
+function isLegacyComment( body ) {
+	return (
+		body.startsWith(
+			'The following accounts have interacted with this PR and/or linked issues.'
+		) &&
+		body
+			.trimEnd()
+			.endsWith( 'best-practices/contributor-attribution-props/).**' )
+	);
+}
 
 class github_GitHub {
 	constructor() {
@@ -41621,7 +41631,7 @@ class github_GitHub {
 				if (
 					currentComment.user.type === 'Bot' &&
 					( currentComment.body.includes( COMMENT_MARKER ) ||
-						currentComment.body.startsWith( LEGACY_COMMENT_START ) )
+						isLegacyComment( currentComment.body ) )
 				) {
 					commentId = currentComment.id;
 					break;
