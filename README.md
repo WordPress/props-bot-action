@@ -59,6 +59,23 @@ permissions:
   issues: read        # Private repos only. Needed to read comments on issues linked to the PR.
 ```
 
+## Commands
+
+Anyone with write access to the repository can adjust the props by commenting on the pull request:
+
+| Command                        | Description                                                                         |
+|--------------------------------|---------------------------------------------------------------------------------------|
+| `@propsbot add <username>`     | Gives props to a GitHub user who would not have been picked up from the PR activity. |
+| `@propsbot remove <username>`  | Leaves a GitHub user out of the props, even if they interacted with the PR.          |
+
+Anyone can comment `@propsbot refresh` to refresh the props list, as an alternative to adding the `props-bot` label.
+
+Each command must be on a line of its own, and a comment can contain several of them. Commands in code blocks are ignored. When there are several commands for the same user, the most recent one wins, so a removal can be undone with `@propsbot add <username>`.
+
+Comments that consist only of commands do not earn their author props.
+
+The commands are read from the comments on the pull request itself every time the action runs. To change an earlier command, post a new one. Edited or deleted commands take effect the next time the action runs.
+
 ## Example Workflow File
 
 To get started, copy and commit the [`example-props-bot.yml` file](https://github.com/WordPress/props-bot-action/blob/trunk/example-props-bot.yml) into the `.github/workflows` directory of your project's repository.

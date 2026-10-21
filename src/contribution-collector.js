@@ -1,5 +1,6 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
+import { getPropsOverrides, parseCommands } from './commands.js';
 import GitHub from './github.js';
 import { getWPOrgData } from './utils.js';
 
@@ -22,8 +23,16 @@ const contributorTypes = [
 	'reviewers',
 	'commenters',
 	'reporters',
+	'added',
 	'unlinked',
 ];
+
+/**
+ * Lowercased usernames removed from the props through Props Bot commands.
+ *
+ * @type {Set<string>}
+ */
+const removedUsers = new Set();
 
 /**
  * Map of user data objects, keyed by contributor identity.
@@ -74,6 +83,15 @@ export async function getContributorsList() {
 
 	core.debug( 'Raw contributor data:' );
 	core.debug( contributorData );
+
+	const overrides = await getPropsOverrides(
+		contributorData.comments.nodes,
+		( username ) => gh.hasWriteAccess( { owner, repo, username } )
+	);
+	overrides.removed.forEach( ( username ) => removedUsers.add( username ) );
+
+	core.debug( 'Props Bot command overrides:' );
+	core.debug( overrides );
 
 	// Keep track of whether the Ghostbusters are needed.
 	let hasGhostActivity = false;
@@ -143,6 +161,12 @@ export async function getContributorsList() {
 				hasGhostActivity = true;
 				return false;
 			}
+
+			// Asking Props Bot to change the props is not a contribution in itself.
+			if ( parseCommands( comment.body ).isCommandOnly ) {
+				return false;
+			}
+
 			return ! skipUser( comment.author.login );
 		} )
 		.forEach( ( comment ) =>
@@ -178,6 +202,28 @@ export async function getContributorsList() {
 
 	core.debug( 'Commenters (including linked issues):' );
 	core.debug( contributors.commenters );
+
+	// Process contributors added through Props Bot commands.
+	for ( const username of overrides.added ) {
+		const user = await gh.getUser( username );
+
+		if ( ! user || 'User' !== user.type ) {
+			core.warning(
+				`Ignoring the request to add @${ username }, who is not a GitHub user.`
+			);
+			continue;
+		}
+
+		if ( contributorAlreadyPresent( user.login ) ) {
+			continue;
+		}
+
+		contributors.added.add( user.login );
+		userData[ user.login ] = user;
+	}
+
+	core.debug( 'Added through Props Bot commands:' );
+	core.debug( contributors.added );
 
 	// We already have user info for committers, we need to grab it for everyone else.
 	if (
@@ -316,6 +362,7 @@ function skipUser( username ) {
 
 	if (
 		-1 === skippedUsers.indexOf( username ) &&
+		! removedUsers.has( username.toLowerCase() ) &&
 		! contributorAlreadyPresent( username )
 	) {
 		return false;

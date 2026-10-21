@@ -28,14 +28,20 @@ const contributorsList = {
  * @type {string}
  */
 const expectedMessage =
-	'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label.\n\n' +
+	'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs.\n\n' +
 	'## Core SVN\n\n' +
 	'Core Committers: Use this line as a base for the props when committing in SVN:\n' +
 	'```\nProps dotorguser.\n```\n\n' +
 	'## GitHub Merge commits\n\n' +
 	"If you're merging code through a pull request on GitHub, copy and paste the following into the bottom of the merge commit message.\n\n" +
 	'```\nCo-authored-by: someone <dotorguser@git.wordpress.org>\n```\n\n' +
-	"**To understand the WordPress project's expectations around crediting contributors, please [review the Contributor Attribution page in the Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).**\n";
+	"**To understand the WordPress project's expectations around crediting contributors, please [review the Contributor Attribution page in the Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).**\n" +
+	'\n---\n\n<details>\n<summary>Props Bot commands</summary>\n<br />\n\n' +
+	'You can trigger Props Bot actions by commenting on this PR:\n\n' +
+	'- `@propsbot add <username>` to give props to a GitHub user. Requires write access.\n' +
+	'- `@propsbot remove <username>` to leave a user out of the props. Requires write access.\n' +
+	'- `@propsbot refresh` to refresh this list. Adding the `props-bot` label works too.\n\n' +
+	'</details>\n';
 
 let outputDir;
 let outputFile;
@@ -159,5 +165,69 @@ describe( 'commentProps', () => {
 
 		assert.equal( calls.createComment, 0 );
 		assert.equal( getOutput( 'comment-body' ), '' );
+	} );
+} );
+
+describe( 'hasWriteAccess', () => {
+	beforeEach( () => {
+		process.env.INPUT_TOKEN = 'token';
+	} );
+
+	afterEach( () => {
+		delete process.env.INPUT_TOKEN;
+	} );
+
+	/**
+	 * Builds a GitHub instance whose permission lookup resolves or rejects as given.
+	 *
+	 * @param {() => Promise<Object>} getCollaboratorPermissionLevel The stubbed lookup.
+	 *
+	 * @return {GitHub} The instance.
+	 */
+	function createGitHubWithPermission( getCollaboratorPermissionLevel ) {
+		const gh = new GitHub();
+		gh.octokit = { rest: { repos: { getCollaboratorPermissionLevel } } };
+		return gh;
+	}
+
+	const options = {
+		owner: 'WordPress',
+		repo: 'props-bot-action',
+		username: 'someone',
+	};
+
+	it( 'grants access for write and admin permission only', async () => {
+		for ( const [ permission, expected ] of [
+			[ 'admin', true ],
+			[ 'write', true ],
+			[ 'read', false ],
+			[ 'none', false ],
+		] ) {
+			const gh = createGitHubWithPermission( async () => ( {
+				data: { permission },
+			} ) );
+
+			assert.equal(
+				await gh.hasWriteAccess( options ),
+				expected,
+				permission
+			);
+		}
+	} );
+
+	it( 'denies access when there is no such user', async () => {
+		const gh = createGitHubWithPermission( async () => {
+			throw Object.assign( new Error( 'Not Found' ), { status: 404 } );
+		} );
+
+		assert.equal( await gh.hasWriteAccess( options ), false );
+	} );
+
+	it( 'fails instead of dropping commands when the check errors', async () => {
+		const gh = createGitHubWithPermission( async () => {
+			throw Object.assign( new Error( 'Server Error' ), { status: 502 } );
+		} );
+
+		await assert.rejects( gh.hasWriteAccess( options ), /Server Error/ );
 	} );
 } );
