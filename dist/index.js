@@ -37814,7 +37814,7 @@ class github_GitHub {
 		};
 
 		let commentMessage =
-			'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label or commenting `@propsbot refresh`. Maintainers can add or remove someone by commenting `@propsbot add <username>` or `@propsbot remove <username>`.\n\n';
+			'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label.\n\n';
 
 		if ( contributorsList.unlinked.length > 0 ) {
 			commentMessage +=
@@ -37873,6 +37873,14 @@ class github_GitHub {
 
 		commentMessage +=
 			"**To understand the WordPress project's expectations around crediting contributors, please [review the Contributor Attribution page in the Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).**\n";
+
+		commentMessage +=
+			'\n<details>\n<summary><sub>Available <code>@propsbot</code> commands</sub></summary>\n\n' +
+			'> These commands are invoked using PR comments.\n\n' +
+			'- `@propsbot add <username>` to give props to a GitHub user. Requires write access.\n' +
+			'- `@propsbot remove <username>` to leave a user out of the props. Requires write access.\n' +
+			'- `@propsbot refresh` to refresh this list.\n\n' +
+			'</details>\n';
 
 		/*
 		 * Set before any API call so consumers receive the message on every

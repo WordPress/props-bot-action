@@ -28,14 +28,20 @@ const contributorsList = {
  * @type {string}
  */
 const expectedMessage =
-	'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label or commenting `@propsbot refresh`. Maintainers can add or remove someone by commenting `@propsbot add <username>` or `@propsbot remove <username>`.\n\n' +
+	'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label.\n\n' +
 	'## Core SVN\n\n' +
 	'Core Committers: Use this line as a base for the props when committing in SVN:\n' +
 	'```\nProps dotorguser.\n```\n\n' +
 	'## GitHub Merge commits\n\n' +
 	"If you're merging code through a pull request on GitHub, copy and paste the following into the bottom of the merge commit message.\n\n" +
 	'```\nCo-authored-by: someone <dotorguser@git.wordpress.org>\n```\n\n' +
-	"**To understand the WordPress project's expectations around crediting contributors, please [review the Contributor Attribution page in the Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).**\n";
+	"**To understand the WordPress project's expectations around crediting contributors, please [review the Contributor Attribution page in the Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).**\n" +
+	'\n<details>\n<summary><sub>Available <code>@propsbot</code> commands</sub></summary>\n\n' +
+	'> These commands are invoked using PR comments.\n\n' +
+	'- `@propsbot add <username>` to give props to a GitHub user. Requires write access.\n' +
+	'- `@propsbot remove <username>` to leave a user out of the props. Requires write access.\n' +
+	'- `@propsbot refresh` to refresh this list.\n\n' +
+	'</details>\n';
 
 let outputDir;
 let outputFile;
