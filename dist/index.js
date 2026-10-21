@@ -44090,8 +44090,9 @@ async function getContributorsList() {
  * address.
  *
  * The raw git author email is untrusted free text rendered verbatim into the
- * props comment, so only a single, well-formed address is accepted as a
- * contributor identity.
+ * props comment, so only addresses made up of letters (including
+ * international letters), digits, and common local-part punctuation are
+ * accepted as a contributor identity.
  *
  * @param {string} email The commit author email to validate.
  *
@@ -44100,7 +44101,7 @@ async function getContributorsList() {
 function isWellFormedEmail( email ) {
 	return (
 		'string' === typeof email &&
-		/^[^\s@,<>"]+@[^\s@,<>"]+\.[^\s@,<>"]+$/.test( email )
+		/^[\p{L}\p{N}.'_%+-]+@[\p{L}\p{N}.-]+\.\p{L}{2,}$/u.test( email )
 	);
 }
 
