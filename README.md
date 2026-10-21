@@ -72,7 +72,7 @@ Each command must be on a line of its own, and a comment can contain several of 
 
 Comments that consist only of commands do not earn their author props.
 
-The commands are read from the comments on the pull request itself every time the action runs. For edited or deleted commands to be picked up right away, the workflow has to run on the `edited` and `deleted` `issue_comment` events, like the [example workflow](#example-workflow-file) does.
+The commands are read from the comments on the pull request itself every time the action runs. To change an earlier command, post a new one. Edited or deleted commands take effect the next time the action runs.
 
 ## Example Workflow File
 

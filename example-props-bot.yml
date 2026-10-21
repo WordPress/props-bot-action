@@ -14,15 +14,12 @@ on:
             - reopened
             - labeled
             - ready_for_review
-    # This event runs anytime a comment is added, edited, or deleted.
-    # Edits and deletions are needed to pick up changed `@propsbot` commands.
+    # This event runs anytime a comment is added or deleted.
     # You cannot filter this event for PR comments only.
     # However, the logic below does short-circuit the workflow for issues.
     issue_comment:
         types:
             - created
-            - edited
-            - deleted
     # This event will run everytime a new PR review is initially submitted.
     pull_request_review:
         types:
