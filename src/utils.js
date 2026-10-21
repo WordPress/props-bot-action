@@ -1,5 +1,4 @@
 import * as github from '@actions/github';
-import fetch from 'node-fetch';
 
 /**
  * Get WordPress.org user data for a list of GitHub usernames.
