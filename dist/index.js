@@ -37875,8 +37875,8 @@ class github_GitHub {
 			"**To understand the WordPress project's expectations around crediting contributors, please [review the Contributor Attribution page in the Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).**\n";
 
 		commentMessage +=
-			'\n---\n\n<details>\n<summary>Available <code>@propsbot</code> commands</summary>\n\n' +
-			'> These commands are invoked using PR comments.\n\n' +
+			'\n---\n\n<details>\n<summary>Props Bot commands</summary>\n<br />\n\n' +
+			'You can trigger Props Bot actions by commenting on this PR:\n\n' +
 			'- `@propsbot add <username>` to give props to a GitHub user. Requires write access.\n' +
 			'- `@propsbot remove <username>` to leave a user out of the props. Requires write access.\n' +
 			'- `@propsbot refresh` to refresh this list. Adding the `props-bot` label works too.\n\n' +
