@@ -235,12 +235,6 @@ export default class GitHub {
 				'At least one `ghost` was discovered. `ghost`s represent deleted GitHub user accounts.\n\n';
 		}
 
-		// Note that a commit author could not be identified.
-		if ( contributorsList.hasRejectedEmail ) {
-			commentMessage +=
-				'At least one commit author could not be identified by their email address and is not included in these lists. See the workflow run log for details.\n\n';
-		}
-
 		commentMessage +=
 			"**To understand the WordPress project's expectations around crediting contributors, please [review the Contributor Attribution page in the Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).**\n";
 

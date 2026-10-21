@@ -78,9 +78,6 @@ export async function getContributorsList() {
 	// Keep track of whether the Ghostbusters are needed.
 	let hasGhostActivity = false;
 
-	// Keep track of whether a commit author email was rejected.
-	let hasRejectedEmail = false;
-
 	// Process pull request commits.
 	for ( const commit of contributorData?.commits?.nodes || [] ) {
 		// Set a trap for some ghosts.
@@ -100,7 +97,7 @@ export async function getContributorsList() {
 				core.warning(
 					`Ignoring an unlinked commit with an untrusted author email: ${ email }`
 				);
-				hasRejectedEmail = true;
+				hasGhostActivity = true;
 				continue;
 			}
 
@@ -275,7 +272,6 @@ export async function getContributorsList() {
 
 	// Include findings so Ghostbuster HQ can be notified.
 	contributorLists.hasGhostActivity = hasGhostActivity;
-	contributorLists.hasRejectedEmail = hasRejectedEmail;
 
 	core.debug( contributorLists );
 
@@ -289,7 +285,9 @@ export async function getContributorsList() {
  * The raw git author email is untrusted free text rendered verbatim into the
  * props comment, so only addresses made up of letters (including
  * international letters and their combining marks), digits, and common
- * local-part punctuation are accepted as a contributor identity.
+ * local-part punctuation are accepted as a contributor identity. Both parts
+ * are made up of dot-separated labels, and domain labels start and end with a
+ * letter or digit.
  *
  * @param {string} email The commit author email to validate.
  *
@@ -298,7 +296,7 @@ export async function getContributorsList() {
 function isWellFormedEmail( email ) {
 	return (
 		'string' === typeof email &&
-		/^[\p{L}\p{M}\p{N}.'_%+-]+@[\p{L}\p{M}\p{N}.-]+\.[\p{L}\p{M}\p{N}-]{2,}$/u.test(
+		/^[\p{L}\p{M}\p{N}'_%+-]+(?:\.[\p{L}\p{M}\p{N}'_%+-]+)*@(?:[\p{L}\p{M}\p{N}](?:[\p{L}\p{M}\p{N}-]*[\p{L}\p{M}\p{N}])?\.)+[\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N}-]*[\p{L}\p{M}\p{N}]$/u.test(
 			email
 		)
 	);
