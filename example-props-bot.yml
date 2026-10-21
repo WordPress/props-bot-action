@@ -34,9 +34,7 @@ on:
 
 # Cancels all previous workflow runs for pull requests that have not completed.
 concurrency:
-    # The concurrency group contains the workflow name and the pull request number, so runs for one pull request
-    # never cancel runs for another. Comments on pull requests come through `issue_comment`, which only has the
-    # number as `github.event.issue.number`. Falls back to the commit hash for any other events.
+    # Groups runs by pull request (`issue_comment` only has `issue.number`), so one PR never cancels another.
     group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || github.sha }}
     cancel-in-progress: true
 
