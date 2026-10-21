@@ -44089,13 +44089,6 @@ async function getContributorsList() {
  * Checks whether an unlinked commit author email is a single, well-formed
  * address.
  *
- * The raw git author email is untrusted free text rendered verbatim into the
- * props comment, so only addresses made up of letters (including
- * international letters and their combining marks), digits, and common
- * local-part punctuation are accepted as a contributor identity. Both parts
- * are made up of dot-separated labels, and domain labels start and end with a
- * letter or digit.
- *
  * @param {string} email The commit author email to validate.
  *
  * @return {boolean} true if the email is a single, well-formed address.
