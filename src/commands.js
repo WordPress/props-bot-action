@@ -1,7 +1,8 @@
 import * as core from '@actions/core';
 
 /**
- * Matches a single `@propsbot add|remove <username>` command line.
+ * Matches a single `@propsbot add|remove <username>` or `@propsbot refresh`
+ * command line.
  *
  * The username follows GitHub's login rules, which also keeps it safe to
  * interpolate into GraphQL queries and render into the props comment.
@@ -9,7 +10,7 @@ import * as core from '@actions/core';
  * @type {RegExp}
  */
 const commandPattern =
-	/^\s*@propsbot\s+(add|remove)\s+@?([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})\s*$/i;
+	/^\s*@propsbot\s+(?:(add|remove)\s+@?([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})|refresh)\s*$/i;
 
 /**
  * Matches the opening or closing line of a fenced code block.
@@ -26,8 +27,9 @@ const fencePattern = /^\s*(```|~~~)/;
  *
  * @param {string} body The comment body.
  *
- * @return {{commands: {action: string, username: string}[], isCommandOnly: boolean}}
+ * @return {{commands: {action: string, username?: string}[], isCommandOnly: boolean}}
  *         The commands found, in order, and whether the comment consists of nothing else.
+ *         `refresh` commands have no username.
  */
 export function parseCommands( body ) {
 	const commands = [];
@@ -55,10 +57,11 @@ export function parseCommands( body ) {
 			continue;
 		}
 
-		commands.push( {
-			action: match[ 1 ].toLowerCase(),
-			username: match[ 2 ],
-		} );
+		commands.push(
+			match[ 1 ]
+				? { action: match[ 1 ].toLowerCase(), username: match[ 2 ] }
+				: { action: 'refresh' }
+		);
 	}
 
 	return {
@@ -72,7 +75,8 @@ export function parseCommands( body ) {
  *
  * Comments are processed in the order given, so a later command for a user
  * replaces an earlier one. Commands from users without write access to the
- * repository are ignored.
+ * repository are ignored. `refresh` commands are skipped, since the comment
+ * itself already triggered the run.
  *
  * @param {Object[]}                               comments       The comments, oldest first.
  * @param {(username: string) => Promise<boolean>} hasWriteAccess Resolves to whether a username may run commands.
@@ -85,7 +89,9 @@ export async function getPropsOverrides( comments, hasWriteAccess ) {
 	const access = new Map();
 
 	for ( const comment of comments ) {
-		const { commands } = parseCommands( comment.body );
+		const commands = parseCommands( comment.body ).commands.filter(
+			( { action } ) => 'refresh' !== action
+		);
 		if ( 0 === commands.length || ! comment.author ) {
 			continue;
 		}

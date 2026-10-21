@@ -31,6 +31,17 @@ describe( 'parseCommands', () => {
 		);
 	} );
 
+	it( 'parses a refresh command, which takes no username', () => {
+		assert.deepEqual( parseCommands( '@PropsBot Refresh ' ), {
+			commands: [ { action: 'refresh' } ],
+			isCommandOnly: true,
+		} );
+		assert.deepEqual(
+			parseCommands( '@propsbot refresh alice' ).commands,
+			[]
+		);
+	} );
+
 	it( 'runs commands next to other content without making it command-only', () => {
 		assert.deepEqual(
 			parseCommands( 'Thanks for the help!\n\n@propsbot add alice' ),
@@ -121,5 +132,19 @@ describe( 'getPropsOverrides', () => {
 			removed: new Set( [ 'carol' ] ),
 		} );
 		assert.deepEqual( checked, [ 'drive-by', 'maintainer' ] );
+	} );
+
+	it( 'skips refresh commands without checking access', async () => {
+		const checked = [];
+		const overrides = await getPropsOverrides(
+			[ comment( 'anyone', '@propsbot refresh' ) ],
+			async ( username ) => {
+				checked.push( username );
+				return false;
+			}
+		);
+
+		assert.deepEqual( overrides, { added: [], removed: new Set() } );
+		assert.deepEqual( checked, [] );
 	} );
 } );

@@ -68,6 +68,8 @@ Anyone with write access to the repository can adjust the props by commenting on
 | `@propsbot add <username>`     | Gives props to a GitHub user who would not have been picked up from the PR activity. |
 | `@propsbot remove <username>`  | Leaves a GitHub user out of the props, even if they interacted with the PR.          |
 
+Anyone can comment `@propsbot refresh` to refresh the props list, as an alternative to adding the `props-bot` label.
+
 Each command must be on a line of its own, and a comment can contain several of them. Commands in fenced code blocks are ignored. When there are several commands for the same user, the most recent one wins, so a removal can be undone with `@propsbot add <username>`.
 
 Comments that consist only of commands do not earn their author props.

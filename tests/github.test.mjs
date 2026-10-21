@@ -28,7 +28,7 @@ const contributorsList = {
  * @type {string}
  */
 const expectedMessage =
-	'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label. Maintainers can add or remove someone by commenting `@propsbot add <username>` or `@propsbot remove <username>`.\n\n' +
+	'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label or commenting `@propsbot refresh`. Maintainers can add or remove someone by commenting `@propsbot add <username>` or `@propsbot remove <username>`.\n\n' +
 	'## Core SVN\n\n' +
 	'Core Committers: Use this line as a base for the props when committing in SVN:\n' +
 	'```\nProps dotorguser.\n```\n\n' +

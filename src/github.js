@@ -236,7 +236,7 @@ export default class GitHub {
 		};
 
 		let commentMessage =
-			'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label. Maintainers can add or remove someone by commenting `@propsbot add <username>` or `@propsbot remove <username>`.\n\n';
+			'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label or commenting `@propsbot refresh`. Maintainers can add or remove someone by commenting `@propsbot add <username>` or `@propsbot remove <username>`.\n\n';
 
 		if ( contributorsList.unlinked.length > 0 ) {
 			commentMessage +=
