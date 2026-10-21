@@ -282,10 +282,6 @@ export async function getContributorsList() {
  * Checks whether an unlinked commit author email is a single, well-formed
  * address.
  *
- * The raw git author email is untrusted free text rendered verbatim into the
- * props comment, so only a single, well-formed address is accepted as a
- * contributor identity.
- *
  * @param {string} email The commit author email to validate.
  *
  * @return {boolean} true if the email is a single, well-formed address.
@@ -293,7 +289,9 @@ export async function getContributorsList() {
 function isWellFormedEmail( email ) {
 	return (
 		'string' === typeof email &&
-		/^[^\s@,<>"]+@[^\s@,<>"]+\.[^\s@,<>"]+$/.test( email )
+		/^[\p{L}\p{M}\p{N}'_%+-]+(?:\.[\p{L}\p{M}\p{N}'_%+-]+)*@(?:[\p{L}\p{M}\p{N}](?:[\p{L}\p{M}\p{N}-]*[\p{L}\p{M}\p{N}])?\.)+[\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N}-]*[\p{L}\p{M}\p{N}]$/u.test(
+			email
+		)
 	);
 }
 
