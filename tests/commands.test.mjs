@@ -67,6 +67,35 @@ describe( 'parseCommands', () => {
 		);
 	} );
 
+	it( 'only ends a fenced code block at a matching fence', () => {
+		assert.deepEqual(
+			parseCommands(
+				[
+					'````',
+					'```',
+					'@propsbot add alice',
+					'```',
+					'````',
+					'~~~',
+					'```js',
+					'@propsbot add bob',
+					'~~~',
+					'@propsbot add carol',
+				].join( '\n' )
+			).commands,
+			[ { action: 'add', username: 'carol' } ]
+		);
+	} );
+
+	it( 'ignores commands indented as code', () => {
+		assert.deepEqual(
+			parseCommands(
+				'Example:\n\n    @propsbot remove bob\n\n   @propsbot add alice'
+			).commands,
+			[ { action: 'add', username: 'alice' } ]
+		);
+	} );
+
 	it( 'ignores usernames GitHub would not allow', () => {
 		for ( const body of [
 			'@propsbot add -alice',

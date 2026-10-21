@@ -167,3 +167,67 @@ describe( 'commentProps', () => {
 		assert.equal( getOutput( 'comment-body' ), '' );
 	} );
 } );
+
+describe( 'hasWriteAccess', () => {
+	beforeEach( () => {
+		process.env.INPUT_TOKEN = 'token';
+	} );
+
+	afterEach( () => {
+		delete process.env.INPUT_TOKEN;
+	} );
+
+	/**
+	 * Builds a GitHub instance whose permission lookup resolves or rejects as given.
+	 *
+	 * @param {() => Promise<Object>} getCollaboratorPermissionLevel The stubbed lookup.
+	 *
+	 * @return {GitHub} The instance.
+	 */
+	function createGitHubWithPermission( getCollaboratorPermissionLevel ) {
+		const gh = new GitHub();
+		gh.octokit = { rest: { repos: { getCollaboratorPermissionLevel } } };
+		return gh;
+	}
+
+	const options = {
+		owner: 'WordPress',
+		repo: 'props-bot-action',
+		username: 'someone',
+	};
+
+	it( 'grants access for write and admin permission only', async () => {
+		for ( const [ permission, expected ] of [
+			[ 'admin', true ],
+			[ 'write', true ],
+			[ 'read', false ],
+			[ 'none', false ],
+		] ) {
+			const gh = createGitHubWithPermission( async () => ( {
+				data: { permission },
+			} ) );
+
+			assert.equal(
+				await gh.hasWriteAccess( options ),
+				expected,
+				permission
+			);
+		}
+	} );
+
+	it( 'denies access when there is no such user', async () => {
+		const gh = createGitHubWithPermission( async () => {
+			throw Object.assign( new Error( 'Not Found' ), { status: 404 } );
+		} );
+
+		assert.equal( await gh.hasWriteAccess( options ), false );
+	} );
+
+	it( 'fails instead of dropping commands when the check errors', async () => {
+		const gh = createGitHubWithPermission( async () => {
+			throw Object.assign( new Error( 'Server Error' ), { status: 502 } );
+		} );
+
+		await assert.rejects( gh.hasWriteAccess( options ), /Server Error/ );
+	} );
+} );

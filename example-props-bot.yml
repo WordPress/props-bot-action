@@ -29,12 +29,6 @@ on:
         types:
             - created
 
-# Cancels all previous workflow runs for pull requests that have not completed.
-concurrency:
-    # Groups runs by pull request (`issue_comment` only has `issue.number`), so one PR never cancels another.
-    group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || github.sha }}
-    cancel-in-progress: true
-
 # Disable permissions for all available scopes by default.
 # Any needed permissions should be configured at the job level.
 permissions: {}
@@ -52,6 +46,10 @@ jobs:
             # The action needs `write` permission for PRs in order to add a comment.
             pull-requests: write
         timeout-minutes: 20
+        # Cancels unfinished runs for the same PR. Set on the job, so runs that skip it never cancel one.
+        concurrency:
+            group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || github.sha }}
+            cancel-in-progress: true
         # The job will run when pull requests are open, ready for review and:
         #
         # - A comment is added to the pull request.

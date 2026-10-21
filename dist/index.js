@@ -37455,25 +37455,28 @@ function getOctokit(token, options, ...additionalPlugins) {
  * command line.
  *
  * The username follows GitHub's login rules, which also keeps it safe to
- * interpolate into GraphQL queries and render into the props comment.
+ * interpolate into GraphQL queries and render into the props comment. Lines
+ * indented by four or more spaces are code in Markdown, so they don't match.
  *
  * @type {RegExp}
  */
 const commandPattern =
-	/^\s*@propsbot\s+(?:(add|remove)\s+@?([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})|refresh)\s*$/i;
+	/^ {0,3}@propsbot\s+(?:(add|remove)\s+@?([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})|refresh)\s*$/i;
 
 /**
- * Matches the opening or closing line of a fenced code block.
+ * Matches a code fence line, capturing the fence and anything after it.
  *
  * @type {RegExp}
  */
-const fencePattern = /^\s*(```|~~~)/;
+const fencePattern = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 
 /**
  * Parses the Props Bot commands out of a comment body.
  *
- * Commands must be on a line of their own. Lines inside fenced code blocks are
- * ignored so that commands can be quoted without being run.
+ * Commands must be on a line of their own. Lines inside code blocks are
+ * ignored so that commands can be quoted without being run. As in Markdown, a
+ * fenced code block only ends at a fence of the same character that is at
+ * least as long as the opening one and has nothing after it.
  *
  * @param {string} body The comment body.
  *
@@ -37484,15 +37487,25 @@ const fencePattern = /^\s*(```|~~~)/;
 function parseCommands( body ) {
 	const commands = [];
 	let hasOtherContent = false;
-	let inFence = false;
+	let openFence = null;
 
 	if ( 'string' !== typeof body ) {
 		return { commands, isCommandOnly: false };
 	}
 
 	for ( const line of body.split( /\r?\n/ ) ) {
-		if ( fencePattern.test( line ) ) {
-			inFence = ! inFence;
+		const fence = line.match( fencePattern );
+		if ( fence ) {
+			if ( ! openFence ) {
+				openFence = fence[ 1 ];
+			} else if (
+				fence[ 1 ][ 0 ] === openFence[ 0 ] &&
+				fence[ 1 ].length >= openFence.length &&
+				'' === fence[ 2 ].trim()
+			) {
+				openFence = null;
+			}
+
 			hasOtherContent = true;
 			continue;
 		}
@@ -37501,7 +37514,7 @@ function parseCommands( body ) {
 			continue;
 		}
 
-		const match = inFence ? null : line.match( commandPattern );
+		const match = openFence ? null : line.match( commandPattern );
 		if ( ! match ) {
 			hasOtherContent = true;
 			continue;
@@ -37755,7 +37768,7 @@ class github_GitHub {
 	 * @param {string} options.repo     The name of the repository.
 	 * @param {string} options.username The username to check.
 	 *
-	 * @return {Promise<boolean>} true if the user has write or admin access.
+	 * @return {Promise<boolean>} true if the user has write or admin access, false if there is no such user.
 	 */
 	async hasWriteAccess( { owner, repo, username } ) {
 		try {
@@ -37769,10 +37782,10 @@ class github_GitHub {
 			// `maintain` is reported as `write`.
 			return [ 'admin', 'write' ].includes( data.permission );
 		} catch ( e ) {
-			warning(
-				`Could not check the repository permission of @${ username }: ${ e.message }`
-			);
-			return false;
+			if ( 404 === e.status ) {
+				return false;
+			}
+			throw e;
 		}
 	}
 

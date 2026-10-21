@@ -177,7 +177,7 @@ export default class GitHub {
 	 * @param {string} options.repo     The name of the repository.
 	 * @param {string} options.username The username to check.
 	 *
-	 * @return {Promise<boolean>} true if the user has write or admin access.
+	 * @return {Promise<boolean>} true if the user has write or admin access, false if there is no such user.
 	 */
 	async hasWriteAccess( { owner, repo, username } ) {
 		try {
@@ -191,10 +191,10 @@ export default class GitHub {
 			// `maintain` is reported as `write`.
 			return [ 'admin', 'write' ].includes( data.permission );
 		} catch ( e ) {
-			core.warning(
-				`Could not check the repository permission of @${ username }: ${ e.message }`
-			);
-			return false;
+			if ( 404 === e.status ) {
+				return false;
+			}
+			throw e;
 		}
 	}
 
