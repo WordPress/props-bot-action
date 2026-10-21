@@ -28,7 +28,7 @@ const contributorsList = {
  * @type {string}
  */
 const expectedMessage =
-	'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label.\n\n' +
+	'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs.\n\n' +
 	'## Core SVN\n\n' +
 	'Core Committers: Use this line as a base for the props when committing in SVN:\n' +
 	'```\nProps dotorguser.\n```\n\n' +
@@ -40,7 +40,7 @@ const expectedMessage =
 	'> These commands are invoked using PR comments.\n\n' +
 	'- `@propsbot add <username>` to give props to a GitHub user. Requires write access.\n' +
 	'- `@propsbot remove <username>` to leave a user out of the props. Requires write access.\n' +
-	'- `@propsbot refresh` to refresh this list.\n\n' +
+	'- `@propsbot refresh` to refresh this list. Adding the `props-bot` label works too.\n\n' +
 	'</details>\n';
 
 let outputDir;
