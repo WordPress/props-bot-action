@@ -50,7 +50,7 @@ export default class GitHub {
 	 * Fetch the following data for the pull request:
 	 * - Commits with author details.
 	 * - Reviews with author logins.
-	 * - Comments with author logins.
+	 * - Comments with author logins and bodies.
 	 * - Linked issues with author logins.
 	 * - Comments on linked issues with author logins.
 	 *
@@ -96,6 +96,7 @@ export default class GitHub {
 								author {
 									login
 								}
+								body
 							}
 						}
 						closingIssuesReferences(first:100){
@@ -141,6 +142,63 @@ export default class GitHub {
 	}
 
 	/**
+	 * Gets the user data for a single username.
+	 *
+	 * @param {string} username The username.
+	 *
+	 * @return {Promise<Object|null>} The user data, or null when there is no such user.
+	 */
+	async getUser( username ) {
+		try {
+			const { data } = await this.octokit.rest.users.getByUsername( {
+				username,
+			} );
+
+			return {
+				databaseId: data.id,
+				login: data.login,
+				name: data.name,
+				email: data.email,
+				type: data.type,
+			};
+		} catch ( e ) {
+			if ( 404 === e.status ) {
+				return null;
+			}
+			throw e;
+		}
+	}
+
+	/**
+	 * Checks whether a user has write access to a repository.
+	 *
+	 * @param {Object} options          The options for the check.
+	 * @param {string} options.owner    The owner of the repository.
+	 * @param {string} options.repo     The name of the repository.
+	 * @param {string} options.username The username to check.
+	 *
+	 * @return {Promise<boolean>} true if the user has write or admin access.
+	 */
+	async hasWriteAccess( { owner, repo, username } ) {
+		try {
+			const { data } =
+				await this.octokit.rest.repos.getCollaboratorPermissionLevel( {
+					owner,
+					repo,
+					username,
+				} );
+
+			// `maintain` is reported as `write`.
+			return [ 'admin', 'write' ].includes( data.permission );
+		} catch ( e ) {
+			core.warning(
+				`Could not check the repository permission of @${ username }: ${ e.message }`
+			);
+			return false;
+		}
+	}
+
+	/**
 	 * Renders the list of contributors and adds it to a PR as a comment.
 	 * - If a comment already exists, it will be updated.
 	 * - The rendered message is always exposed through the `comment-body` output.
@@ -178,7 +236,7 @@ export default class GitHub {
 		};
 
 		let commentMessage =
-			'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label.\n\n';
+			'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label. Maintainers can add or remove someone by commenting `@propsbot add <username>` or `@propsbot remove <username>`.\n\n';
 
 		if ( contributorsList.unlinked.length > 0 ) {
 			commentMessage +=

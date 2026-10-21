@@ -14,12 +14,15 @@ on:
             - reopened
             - labeled
             - ready_for_review
-    # This event runs anytime a comment is added or deleted.
+    # This event runs anytime a comment is added, edited, or deleted.
+    # Edits and deletions are needed to pick up changed `@propsbot` commands.
     # You cannot filter this event for PR comments only.
     # However, the logic below does short-circuit the workflow for issues.
     issue_comment:
         types:
             - created
+            - edited
+            - deleted
     # This event will run everytime a new PR review is initially submitted.
     pull_request_review:
         types:
@@ -31,9 +34,10 @@ on:
 
 # Cancels all previous workflow runs for pull requests that have not completed.
 concurrency:
-    # The concurrency group contains the workflow name and the branch name for pull requests
-    # or the commit hash for any other events.
-    group: ${{ github.workflow }}-${{ contains( fromJSON( '["pull_request_target", "pull_request_review", "pull_request_review_comment"]' ), github.event_name ) && github.head_ref || github.sha }}
+    # The concurrency group contains the workflow name and the pull request number, so runs for one pull request
+    # never cancel runs for another. Comments on pull requests come through `issue_comment`, which only has the
+    # number as `github.event.issue.number`. Falls back to the commit hash for any other events.
+    group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || github.sha }}
     cancel-in-progress: true
 
 # Disable permissions for all available scopes by default.

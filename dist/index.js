@@ -41324,6 +41324,129 @@ function getOctokit(token, options, ...additionalPlugins) {
     return new GitHubWithPlugins(getOctokitOptions(token, options));
 }
 //# sourceMappingURL=github.js.map
+;// CONCATENATED MODULE: ./src/commands.js
+
+
+/**
+ * Matches a single `@propsbot add|remove <username>` command line.
+ *
+ * The username follows GitHub's login rules, which also keeps it safe to
+ * interpolate into GraphQL queries and render into the props comment.
+ *
+ * @type {RegExp}
+ */
+const commandPattern =
+	/^\s*@propsbot\s+(add|remove)\s+@?([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})\s*$/i;
+
+/**
+ * Matches the opening or closing line of a fenced code block.
+ *
+ * @type {RegExp}
+ */
+const fencePattern = /^\s*(```|~~~)/;
+
+/**
+ * Parses the Props Bot commands out of a comment body.
+ *
+ * Commands must be on a line of their own. Lines inside fenced code blocks are
+ * ignored so that commands can be quoted without being run.
+ *
+ * @param {string} body The comment body.
+ *
+ * @return {{commands: {action: string, username: string}[], isCommandOnly: boolean}}
+ *         The commands found, in order, and whether the comment consists of nothing else.
+ */
+function parseCommands( body ) {
+	const commands = [];
+	let hasOtherContent = false;
+	let inFence = false;
+
+	if ( 'string' !== typeof body ) {
+		return { commands, isCommandOnly: false };
+	}
+
+	for ( const line of body.split( /\r?\n/ ) ) {
+		if ( fencePattern.test( line ) ) {
+			inFence = ! inFence;
+			hasOtherContent = true;
+			continue;
+		}
+
+		if ( '' === line.trim() ) {
+			continue;
+		}
+
+		const match = inFence ? null : line.match( commandPattern );
+		if ( ! match ) {
+			hasOtherContent = true;
+			continue;
+		}
+
+		commands.push( {
+			action: match[ 1 ].toLowerCase(),
+			username: match[ 2 ],
+		} );
+	}
+
+	return {
+		commands,
+		isCommandOnly: commands.length > 0 && ! hasOtherContent,
+	};
+}
+
+/**
+ * Replays the Props Bot commands in a list of comments.
+ *
+ * Comments are processed in the order given, so a later command for a user
+ * replaces an earlier one. Commands from users without write access to the
+ * repository are ignored.
+ *
+ * @param {Object[]} comments       The comments, oldest first.
+ * @param {Function} hasWriteAccess Resolves to whether a username may run commands.
+ *
+ * @return {Promise<{added: string[], removed: Set<string>}>} The usernames to add,
+ *         and the lowercased usernames to remove.
+ */
+async function getPropsOverrides( comments, hasWriteAccess ) {
+	const overrides = new Map();
+	const access = new Map();
+
+	for ( const comment of comments ) {
+		const { commands } = parseCommands( comment.body );
+		if ( 0 === commands.length || ! comment.author ) {
+			continue;
+		}
+
+		const author = comment.author.login;
+		if ( ! access.has( author ) ) {
+			access.set( author, await hasWriteAccess( author ) );
+		}
+
+		if ( ! access.get( author ) ) {
+			info(
+				`Ignoring Props Bot commands from @${ author }, who does not have write access.`
+			);
+			continue;
+		}
+
+		for ( const { action, username } of commands ) {
+			overrides.set( username.toLowerCase(), { action, username } );
+		}
+	}
+
+	const added = [];
+	const removed = new Set();
+	for ( const [ key, { action, username } ] of overrides ) {
+		if ( 'add' === action ) {
+			added.push( username );
+		} else {
+			removed.add( key );
+		}
+	}
+
+	return { added, removed };
+}
+
 ;// CONCATENATED MODULE: ./src/github.js
 
 
@@ -41376,7 +41499,7 @@ class github_GitHub {
 	 * Fetch the following data for the pull request:
 	 * - Commits with author details.
 	 * - Reviews with author logins.
-	 * - Comments with author logins.
+	 * - Comments with author logins and bodies.
 	 * - Linked issues with author logins.
 	 * - Comments on linked issues with author logins.
 	 *
@@ -41422,6 +41545,7 @@ class github_GitHub {
 								author {
 									login
 								}
+								body
 							}
 						}
 						closingIssuesReferences(first:100){
@@ -41467,6 +41591,63 @@ class github_GitHub {
 	}
 
 	/**
+	 * Gets the user data for a single username.
+	 *
+	 * @param {string} username The username.
+	 *
+	 * @return {Promise<Object|null>} The user data, or null when there is no such user.
+	 */
+	async getUser( username ) {
+		try {
+			const { data } = await this.octokit.rest.users.getByUsername( {
+				username,
+			} );
+
+			return {
+				databaseId: data.id,
+				login: data.login,
+				name: data.name,
+				email: data.email,
+				type: data.type,
+			};
+		} catch ( e ) {
+			if ( 404 === e.status ) {
+				return null;
+			}
+			throw e;
+		}
+	}
+
+	/**
+	 * Checks whether a user has write access to a repository.
+	 *
+	 * @param {Object} options          The options for the check.
+	 * @param {string} options.owner    The owner of the repository.
+	 * @param {string} options.repo     The name of the repository.
+	 * @param {string} options.username The username to check.
+	 *
+	 * @return {Promise<boolean>} true if the user has write or admin access.
+	 */
+	async hasWriteAccess( { owner, repo, username } ) {
+		try {
+			const { data } =
+				await this.octokit.rest.repos.getCollaboratorPermissionLevel( {
+					owner,
+					repo,
+					username,
+				} );
+
+			// `maintain` is reported as `write`.
+			return [ 'admin', 'write' ].includes( data.permission );
+		} catch ( e ) {
+			warning(
+				`Could not check the repository permission of @${ username }: ${ e.message }`
+			);
+			return false;
+		}
+	}
+
+	/**
 	 * Renders the list of contributors and adds it to a PR as a comment.
 	 * - If a comment already exists, it will be updated.
 	 * - The rendered message is always exposed through the `comment-body` output.
@@ -41504,7 +41685,7 @@ class github_GitHub {
 		};
 
 		let commentMessage =
-			'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label.\n\n';
+			'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs. You can also manually ask me to refresh this list by adding the `props-bot` label. Maintainers can add or remove someone by commenting `@propsbot add <username>` or `@propsbot remove <username>`.\n\n';
 
 		if ( contributorsList.unlinked.length > 0 ) {
 			commentMessage +=
@@ -43810,6 +43991,7 @@ async function getWPOrgData( githubUsers ) {
 
 
 
+
 const { /* context */ "_": contribution_collector_context } = github_namespaceObject;
 const gh = new github_GitHub();
 const owner = contribution_collector_context.repo.owner;
@@ -43829,8 +44011,16 @@ const contributorTypes = [
 	'reviewers',
 	'commenters',
 	'reporters',
+	'added',
 	'unlinked',
 ];
+
+/**
+ * Lowercased usernames removed from the props through Props Bot commands.
+ *
+ * @type {Set<string>}
+ */
+const removedUsers = new Set();
 
 /**
  * Map of user data objects, keyed by contributor identity.
@@ -43881,6 +44071,15 @@ async function getContributorsList() {
 
 	core_debug( 'Raw contributor data:' );
 	core_debug( contributorData );
+
+	const overrides = await getPropsOverrides(
+		contributorData.comments.nodes,
+		( username ) => gh.hasWriteAccess( { owner, repo, username } )
+	);
+	overrides.removed.forEach( ( username ) => removedUsers.add( username ) );
+
+	core_debug( 'Props Bot command overrides:' );
+	core_debug( overrides );
 
 	// Keep track of whether the Ghostbusters are needed.
 	let hasGhostActivity = false;
@@ -43950,6 +44149,12 @@ async function getContributorsList() {
 				hasGhostActivity = true;
 				return false;
 			}
+
+			// Asking Props Bot to change the props is not a contribution in itself.
+			if ( parseCommands( comment.body ).isCommandOnly ) {
+				return false;
+			}
+
 			return ! skipUser( comment.author.login );
 		} )
 		.forEach( ( comment ) =>
@@ -43985,6 +44190,28 @@ async function getContributorsList() {
 
 	core_debug( 'Commenters (including linked issues):' );
 	core_debug( contributors.commenters );
+
+	// Process contributors added through Props Bot commands.
+	for ( const username of overrides.added ) {
+		const user = await gh.getUser( username );
+
+		if ( ! user || 'User' !== user.type ) {
+			warning(
+				`Ignoring the request to add @${ username }, who is not a GitHub user.`
+			);
+			continue;
+		}
+
+		if ( contributorAlreadyPresent( user.login ) ) {
+			continue;
+		}
+
+		contributors.added.add( user.login );
+		userData[ user.login ] = user;
+	}
+
+	core_debug( 'Added through Props Bot commands:' );
+	core_debug( contributors.added );
 
 	// We already have user info for committers, we need to grab it for everyone else.
 	if (
@@ -44125,6 +44352,7 @@ function skipUser( username ) {
 
 	if (
 		-1 === skippedUsers.indexOf( username ) &&
+		! removedUsers.has( username.toLowerCase() ) &&
 		! contributorAlreadyPresent( username )
 	) {
 		return false;
