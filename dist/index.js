@@ -37524,8 +37524,8 @@ function parseCommands( body ) {
  * replaces an earlier one. Commands from users without write access to the
  * repository are ignored.
  *
- * @param {Object[]} comments       The comments, oldest first.
- * @param {Function} hasWriteAccess Resolves to whether a username may run commands.
+ * @param {Object[]}                               comments       The comments, oldest first.
+ * @param {(username: string) => Promise<boolean>} hasWriteAccess Resolves to whether a username may run commands.
  *
  * @return {Promise<{added: string[], removed: Set<string>}>} The usernames to add,
  *         and the lowercased usernames to remove.
