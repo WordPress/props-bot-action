@@ -206,7 +206,7 @@ export default class GitHub {
 	 *
 	 * @param {Object} options                  The options for commenting.
 	 * @param {Object} options.context          The context object containing information about the GitHub event.
-	 * @param {Array}  options.contributorsList The list of contributors.
+	 * @param {Object} options.contributorsList The lists of contributors.
 	 *
 	 * @return {Promise<void>} - A promise that resolves when the comment is posted.
 	 */

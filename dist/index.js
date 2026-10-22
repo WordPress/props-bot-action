@@ -37797,7 +37797,7 @@ class github_GitHub {
 	 *
 	 * @param {Object} options                  The options for commenting.
 	 * @param {Object} options.context          The context object containing information about the GitHub event.
-	 * @param {Array}  options.contributorsList The list of contributors.
+	 * @param {Object} options.contributorsList The lists of contributors.
 	 *
 	 * @return {Promise<void>} - A promise that resolves when the comment is posted.
 	 */
@@ -38063,7 +38063,7 @@ async function run() {
  * - Collects user data from WordPress.org.
  * - Generates a list of contributors.
  *
- * @return {Promise<null|string>} null if no contributors, otherwise an object with lists of contributors.
+ * @return {Promise<Object|undefined>} The lists of contributors, or undefined if there are none.
  * @async
  */
 async function getContributorsList() {
@@ -38074,7 +38074,7 @@ async function getContributorsList() {
 	} );
 
 	core_debug( 'Raw contributor data:' );
-	core_debug( contributorData );
+	debugValue( contributorData );
 
 	const overrides = await getPropsOverrides(
 		contributorData.comments.nodes,
@@ -38083,7 +38083,7 @@ async function getContributorsList() {
 	overrides.removed.forEach( ( username ) => removedUsers.add( username ) );
 
 	core_debug( 'Props Bot command overrides:' );
-	core_debug( overrides );
+	debugValue( overrides );
 
 	// Keep track of whether the Ghostbusters are needed.
 	let hasGhostActivity = false;
@@ -38128,7 +38128,7 @@ async function getContributorsList() {
 	}
 
 	core_debug( 'Committers:' );
-	core_debug( contributors.committers );
+	debugValue( contributors.committers );
 
 	// Process pull request reviews.
 	contributorData.reviews.nodes
@@ -38144,7 +38144,7 @@ async function getContributorsList() {
 		);
 
 	core_debug( 'Reviewers:' );
-	core_debug( contributors.reviewers );
+	debugValue( contributors.reviewers );
 
 	// Process pull request comments.
 	contributorData.comments.nodes
@@ -38166,7 +38166,7 @@ async function getContributorsList() {
 		);
 
 	core_debug( 'Commenters:' );
-	core_debug( contributors.commenters );
+	debugValue( contributors.commenters );
 
 	// Process reporters and commenters for linked issues.
 	for ( const linkedIssue of contributorData.closingIssuesReferences.nodes ) {
@@ -38190,10 +38190,10 @@ async function getContributorsList() {
 	}
 
 	core_debug( 'Reporters:' );
-	core_debug( contributors.reporters );
+	debugValue( contributors.reporters );
 
 	core_debug( 'Commenters (including linked issues):' );
-	core_debug( contributors.commenters );
+	debugValue( contributors.commenters );
 
 	// Process contributors added through Props Bot commands.
 	for ( const username of overrides.added ) {
@@ -38215,7 +38215,7 @@ async function getContributorsList() {
 	}
 
 	core_debug( 'Added through Props Bot commands:' );
-	core_debug( contributors.added );
+	debugValue( contributors.added );
 
 	// We already have user info for committers, we need to grab it for everyone else.
 	if (
@@ -38250,10 +38250,10 @@ async function getContributorsList() {
 	}
 
 	core_debug( 'GitHub contributor usernames:' );
-	core_debug( githubUsers );
+	debugValue( githubUsers );
 
 	// List to return from the function.
-	const contributorLists = [];
+	const contributorLists = {};
 	contributorLists.github = [];
 
 	// Collect WordPress.org usernames
@@ -38261,7 +38261,7 @@ async function getContributorsList() {
 	contributorLists.svn = [];
 
 	core_debug( 'WordPress.org raw data:' );
-	core_debug( wpOrgData );
+	debugValue( wpOrgData );
 
 	// Add each contributor's wp.org username to their user data.
 	Object.keys( userData ).forEach( ( contributor ) => {
@@ -38311,9 +38311,25 @@ async function getContributorsList() {
 	// Include findings so Ghostbuster HQ can be notified.
 	contributorLists.hasGhostActivity = hasGhostActivity;
 
-	core_debug( contributorLists );
+	debugValue( contributorLists );
 
 	return contributorLists;
+}
+
+/**
+ * Logs a value in debug mode.
+ *
+ * `core.debug()` serializes non-strings with `JSON.stringify()`, which turns a
+ * Set into `{}`.
+ *
+ * @param {unknown} value The value to log.
+ */
+function debugValue( value ) {
+	core_debug(
+		JSON.stringify( value, ( key, item ) =>
+			item instanceof Set ? [ ...item ] : item
+		)
+	);
 }
 
 /**
