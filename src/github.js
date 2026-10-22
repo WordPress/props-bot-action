@@ -33,16 +33,12 @@ const pullRequestConnections = {
  * Builds the query for one page of a connection, including its page info.
  *
  * @param {string}  field         The name of the connection field.
- * @param {string}  [nodeFields]  The fields to fetch for each node. Defaults to the pull request connection's.
+ * @param {string}  nodeFields    The fields to fetch for each node.
  * @param {boolean} [afterCursor] Whether to start after the `$cursor` variable.
  *
  * @return {string} The connection query.
  */
-function connectionQuery(
-	field,
-	nodeFields = pullRequestConnections[ field ],
-	afterCursor = false
-) {
+function connectionQuery( field, nodeFields, afterCursor = false ) {
 	return `${ field }(first: 100${ afterCursor ? ', after: $cursor' : '' }) {
 		nodes { ${ nodeFields } }
 		pageInfo { hasNextPage endCursor }
@@ -106,8 +102,10 @@ export default class GitHub {
 	async getContributorData( { owner, repo, prNumber } ) {
 		core.info( 'Gathering contributor list.' );
 
-		const connections = Object.keys( pullRequestConnections )
-			.map( ( field ) => connectionQuery( field ) )
+		const connections = Object.entries( pullRequestConnections )
+			.map( ( [ field, nodeFields ] ) =>
+				connectionQuery( field, nodeFields )
+			)
 			.join( '\n' );
 
 		const data = await this.octokit.graphql(
@@ -127,11 +125,14 @@ export default class GitHub {
 			return pullRequest;
 		}
 
-		for ( const field of Object.keys( pullRequestConnections ) ) {
+		for ( const [ field, nodeFields ] of Object.entries(
+			pullRequestConnections
+		) ) {
 			await this.fetchRemainingPages( pullRequest[ field ], {
 				id: pullRequest.id,
 				type: 'PullRequest',
 				field,
+				nodeFields,
 			} );
 		}
 
@@ -151,19 +152,16 @@ export default class GitHub {
 	/**
 	 * Fetches the remaining pages of a connection and appends their nodes to it.
 	 *
-	 * @param {Object} connection           The connection, with its first page of nodes and its `pageInfo`.
-	 * @param {Object} options              The options for fetching the pages.
-	 * @param {string} options.id           The global node ID of the object the connection belongs to.
-	 * @param {string} options.type         The GraphQL type of that object.
-	 * @param {string} options.field        The name of the connection field.
-	 * @param {string} [options.nodeFields] The fields to fetch for each node. Defaults to the pull request connection's.
+	 * @param {Object} connection         The connection, with its first page of nodes and its `pageInfo`.
+	 * @param {Object} options            The options for fetching the pages.
+	 * @param {string} options.id         The global node ID of the object the connection belongs to.
+	 * @param {string} options.type       The GraphQL type of that object.
+	 * @param {string} options.field      The name of the connection field.
+	 * @param {string} options.nodeFields The fields to fetch for each node.
 	 *
 	 * @return {Promise<void>} A promise that resolves when every page has been fetched.
 	 */
-	async fetchRemainingPages(
-		connection,
-		{ id, type, field, nodeFields = pullRequestConnections[ field ] }
-	) {
+	async fetchRemainingPages( connection, { id, type, field, nodeFields } ) {
 		while ( connection.pageInfo?.hasNextPage ) {
 			const data = await this.octokit.graphql(
 				`query($id:ID!, $cursor:String!) {
