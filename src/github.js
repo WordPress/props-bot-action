@@ -73,6 +73,7 @@ export default class GitHub {
 								commit {
 									author {
 										user {
+											__typename
 											databaseId
 											login
 											name

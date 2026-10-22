@@ -171,7 +171,11 @@ describe( 'getContributorsList', () => {
 
 	it( 'leaves out authors that are not user accounts', async () => {
 		GitHub.prototype.getContributorData = async () => ( {
-			commits: { nodes: [] },
+			commits: {
+				nodes: [
+					{ commit: { author: { user: actor( 'committer' ) } } },
+				],
+			},
 			reviews: {
 				nodes: [
 					{ author: actor( 'reviewer' ) },
@@ -213,6 +217,7 @@ describe( 'getContributorsList', () => {
 			'issue-commenter',
 		] );
 		assert.deepEqual( contributorsList.unlinked, [
+			'committer',
 			'reviewer',
 			'commenter',
 			'issue-commenter',

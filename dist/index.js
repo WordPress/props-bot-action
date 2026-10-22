@@ -37664,6 +37664,7 @@ class github_GitHub {
 								commit {
 									author {
 										user {
+											__typename
 											databaseId
 											login
 											name
@@ -38121,7 +38122,7 @@ async function getContributorsList() {
 				email,
 			};
 		} else {
-			if ( skipUser( commit.commit.author.user.login ) ) {
+			if ( skipUser( commit.commit.author.user ) ) {
 				continue;
 			}
 
@@ -38141,10 +38142,7 @@ async function getContributorsList() {
 				hasGhostActivity = true;
 				return false;
 			}
-			return (
-				isUserAccount( review.author ) &&
-				! skipUser( review.author.login )
-			);
+			return ! skipUser( review.author );
 		} )
 		.forEach( ( review ) =>
 			contributors.reviewers.add( review.author.login )
@@ -38166,10 +38164,7 @@ async function getContributorsList() {
 				return false;
 			}
 
-			return (
-				isUserAccount( comment.author ) &&
-				! skipUser( comment.author.login )
-			);
+			return ! skipUser( comment.author );
 		} )
 		.forEach( ( comment ) =>
 			contributors.commenters.add( comment.author.login )
@@ -38183,19 +38178,12 @@ async function getContributorsList() {
 		// Lay a proton trap for any more ghosts.
 		if ( ! linkedIssue.author ) {
 			hasGhostActivity = true;
-		} else if (
-			isUserAccount( linkedIssue.author ) &&
-			! skipUser( linkedIssue.author.login )
-		) {
+		} else if ( ! skipUser( linkedIssue.author ) ) {
 			contributors.reporters.add( linkedIssue.author.login );
 		}
 
 		for ( const issueComment of linkedIssue.comments.nodes ) {
-			if (
-				! issueComment.author ||
-				! isUserAccount( issueComment.author ) ||
-				skipUser( issueComment.author.login )
-			) {
+			if ( ! issueComment.author || skipUser( issueComment.author ) ) {
 				continue;
 			}
 
@@ -38364,27 +38352,17 @@ function isWellFormedEmail( email ) {
 }
 
 /**
- * Checks whether a comment, review, or issue author is a user account.
- *
- * Bots, mannequins, and organizations can't be looked up as users, and the
- * whole lookup fails when one of them is included.
- *
- * @param {Object} actor The author, with its GraphQL `__typename`.
- *
- * @return {boolean} true if the author is a user account. false otherwise.
- */
-function isUserAccount( actor ) {
-	return 'User' === actor.__typename;
-}
-
-/**
  * Checks if a user should be skipped.
  *
- * @param {string} username Username to check.
+ * Bots, mannequins, and organizations are always skipped. They can't be looked
+ * up as users, and the whole lookup fails when one of them is included.
  *
- * @return {boolean} true if the username should be skipped. false otherwise.
+ * @param {Object} actor The author, with its `login` and GraphQL `__typename`.
+ *
+ * @return {boolean} true if the user should be skipped. false otherwise.
  */
-function skipUser( username ) {
+function skipUser( actor ) {
+	const { __typename, login: username } = actor;
 	const skippedUsers = [
 		'codecov',
 		'coderabbitai',
@@ -38397,6 +38375,7 @@ function skipUser( username ) {
 	];
 
 	if (
+		'User' === __typename &&
 		-1 === skippedUsers.indexOf( username ) &&
 		! removedUsers.has( username.toLowerCase() ) &&
 		! contributorAlreadyPresent( username )
