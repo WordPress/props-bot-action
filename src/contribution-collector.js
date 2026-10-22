@@ -82,7 +82,7 @@ export async function getContributorsList() {
 	} );
 
 	core.debug( 'Raw contributor data:' );
-	core.debug( contributorData );
+	debugValue( contributorData );
 
 	const overrides = await getPropsOverrides(
 		contributorData.comments.nodes,
@@ -91,7 +91,7 @@ export async function getContributorsList() {
 	overrides.removed.forEach( ( username ) => removedUsers.add( username ) );
 
 	core.debug( 'Props Bot command overrides:' );
-	core.debug( overrides );
+	debugValue( overrides );
 
 	// Keep track of whether the Ghostbusters are needed.
 	let hasGhostActivity = false;
@@ -136,7 +136,7 @@ export async function getContributorsList() {
 	}
 
 	core.debug( 'Committers:' );
-	core.debug( contributors.committers );
+	debugValue( contributors.committers );
 
 	// Process pull request reviews.
 	contributorData.reviews.nodes
@@ -152,7 +152,7 @@ export async function getContributorsList() {
 		);
 
 	core.debug( 'Reviewers:' );
-	core.debug( contributors.reviewers );
+	debugValue( contributors.reviewers );
 
 	// Process pull request comments.
 	contributorData.comments.nodes
@@ -174,7 +174,7 @@ export async function getContributorsList() {
 		);
 
 	core.debug( 'Commenters:' );
-	core.debug( contributors.commenters );
+	debugValue( contributors.commenters );
 
 	// Process reporters and commenters for linked issues.
 	for ( const linkedIssue of contributorData.closingIssuesReferences.nodes ) {
@@ -198,10 +198,10 @@ export async function getContributorsList() {
 	}
 
 	core.debug( 'Reporters:' );
-	core.debug( contributors.reporters );
+	debugValue( contributors.reporters );
 
 	core.debug( 'Commenters (including linked issues):' );
-	core.debug( contributors.commenters );
+	debugValue( contributors.commenters );
 
 	// Process contributors added through Props Bot commands.
 	for ( const username of overrides.added ) {
@@ -223,7 +223,7 @@ export async function getContributorsList() {
 	}
 
 	core.debug( 'Added through Props Bot commands:' );
-	core.debug( contributors.added );
+	debugValue( contributors.added );
 
 	// We already have user info for committers, we need to grab it for everyone else.
 	if (
@@ -258,10 +258,10 @@ export async function getContributorsList() {
 	}
 
 	core.debug( 'GitHub contributor usernames:' );
-	core.debug( githubUsers );
+	debugValue( githubUsers );
 
 	// List to return from the function.
-	const contributorLists = [];
+	const contributorLists = {};
 	contributorLists.github = [];
 
 	// Collect WordPress.org usernames
@@ -269,7 +269,7 @@ export async function getContributorsList() {
 	contributorLists.svn = [];
 
 	core.debug( 'WordPress.org raw data:' );
-	core.debug( wpOrgData );
+	debugValue( wpOrgData );
 
 	// Add each contributor's wp.org username to their user data.
 	Object.keys( userData ).forEach( ( contributor ) => {
@@ -319,9 +319,25 @@ export async function getContributorsList() {
 	// Include findings so Ghostbuster HQ can be notified.
 	contributorLists.hasGhostActivity = hasGhostActivity;
 
-	core.debug( contributorLists );
+	debugValue( contributorLists );
 
 	return contributorLists;
+}
+
+/**
+ * Logs a value in debug mode.
+ *
+ * `core.debug()` serializes non-strings with `JSON.stringify()`, which turns a
+ * Set into `{}`.
+ *
+ * @param {unknown} value The value to log.
+ */
+function debugValue( value ) {
+	core.debug(
+		JSON.stringify( value, ( key, item ) =>
+			item instanceof Set ? [ ...item ] : item
+		)
+	);
 }
 
 /**
