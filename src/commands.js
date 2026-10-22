@@ -87,8 +87,9 @@ export function parseCommands( body ) {
  * Replays the Props Bot commands in a list of comments.
  *
  * Comments are processed in the order given, so a later command for a user
- * replaces an earlier one. Commands from users without write access to the
- * repository are ignored. `refresh` commands are skipped, since the comment
+ * replaces an earlier one. Commands from bots and other accounts that aren't
+ * users, and from users without write access to the repository, are ignored.
+ * `refresh` commands are skipped, since the comment
  * itself already triggered the run.
  *
  * @param {Object[]}                               comments       The comments, oldest first.
@@ -105,7 +106,11 @@ export async function getPropsOverrides( comments, hasWriteAccess ) {
 		const commands = parseCommands( comment.body ).commands.filter(
 			( { action } ) => 'refresh' !== action
 		);
-		if ( 0 === commands.length || ! comment.author ) {
+		if (
+			0 === commands.length ||
+			! comment.author ||
+			'User' !== comment.author.__typename
+		) {
 			continue;
 		}
 

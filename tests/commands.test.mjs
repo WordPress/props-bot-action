@@ -6,13 +6,14 @@ import { getPropsOverrides, parseCommands } from '../src/commands.js';
 /**
  * Builds a comment as returned by the contributor data query.
  *
- * @param {string} login The author's login.
- * @param {string} body  The comment body.
+ * @param {string} login        The author's login.
+ * @param {string} body         The comment body.
+ * @param {string} [__typename] The author's GraphQL actor type.
  *
  * @return {Object} The comment.
  */
-function comment( login, body ) {
-	return { author: { login }, body };
+function comment( login, body, __typename = 'User' ) {
+	return { author: { __typename, login }, body };
 }
 
 describe( 'parseCommands', () => {
@@ -161,6 +162,20 @@ describe( 'getPropsOverrides', () => {
 			removed: new Set( [ 'carol' ] ),
 		} );
 		assert.deepEqual( checked, [ 'drive-by', 'maintainer' ] );
+	} );
+
+	it( 'ignores commands from authors that are not user accounts, without checking access', async () => {
+		const checked = [];
+		const overrides = await getPropsOverrides(
+			[ comment( 'maintainer', '@propsbot remove carol', 'Bot' ) ],
+			async ( username ) => {
+				checked.push( username );
+				return true;
+			}
+		);
+
+		assert.deepEqual( overrides, { added: [], removed: new Set() } );
+		assert.deepEqual( checked, [] );
 	} );
 
 	it( 'skips refresh commands without checking access', async () => {
