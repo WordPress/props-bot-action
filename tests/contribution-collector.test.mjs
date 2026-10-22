@@ -14,6 +14,11 @@ const originalMethods = {
 	hasWriteAccess: GitHub.prototype.hasWriteAccess,
 };
 
+/**
+ * Original `fetch()`, restored after each test.
+ *
+ * @type {typeof fetch}
+ */
 const originalFetch = globalThis.fetch;
 
 /**
@@ -111,6 +116,13 @@ describe( 'getContributorsList', () => {
 
 		const { getContributorsList } = await importCollector();
 		const messages = await captureDebug( getContributorsList );
+		/**
+		 * Gets the debug message logged right after a label.
+		 *
+		 * @param {string} label The label.
+		 *
+		 * @return {string} The message.
+		 */
 		const after = ( label ) => messages[ messages.indexOf( label ) + 1 ];
 
 		assert.equal( after( 'Committers:' ), '["committer"]' );
