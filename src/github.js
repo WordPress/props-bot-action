@@ -87,6 +87,7 @@ export default class GitHub {
 						reviews(first: 100) {
 							nodes {
 								author {
+									__typename
 									login
 								}
 							}
@@ -94,6 +95,7 @@ export default class GitHub {
 						comments(first: 100) {
 							nodes {
 								author {
+									__typename
 									login
 								}
 								body
@@ -102,11 +104,13 @@ export default class GitHub {
 						closingIssuesReferences(first:100){
 							nodes {
 								author {
+									__typename
 									login
 								}
 								comments(first:100) {
 									nodes {
 										author {
+											__typename
 											login
 										}
 									}

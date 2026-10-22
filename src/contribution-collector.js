@@ -145,7 +145,10 @@ export async function getContributorsList() {
 				hasGhostActivity = true;
 				return false;
 			}
-			return ! skipUser( review.author.login );
+			return (
+				isUserAccount( review.author ) &&
+				! skipUser( review.author.login )
+			);
 		} )
 		.forEach( ( review ) =>
 			contributors.reviewers.add( review.author.login )
@@ -167,7 +170,10 @@ export async function getContributorsList() {
 				return false;
 			}
 
-			return ! skipUser( comment.author.login );
+			return (
+				isUserAccount( comment.author ) &&
+				! skipUser( comment.author.login )
+			);
 		} )
 		.forEach( ( comment ) =>
 			contributors.commenters.add( comment.author.login )
@@ -181,13 +187,17 @@ export async function getContributorsList() {
 		// Lay a proton trap for any more ghosts.
 		if ( ! linkedIssue.author ) {
 			hasGhostActivity = true;
-		} else if ( ! skipUser( linkedIssue.author.login ) ) {
+		} else if (
+			isUserAccount( linkedIssue.author ) &&
+			! skipUser( linkedIssue.author.login )
+		) {
 			contributors.reporters.add( linkedIssue.author.login );
 		}
 
 		for ( const issueComment of linkedIssue.comments.nodes ) {
 			if (
 				! issueComment.author ||
+				! isUserAccount( issueComment.author ) ||
 				skipUser( issueComment.author.login )
 			) {
 				continue;
@@ -355,6 +365,20 @@ function isWellFormedEmail( email ) {
 			email
 		)
 	);
+}
+
+/**
+ * Checks whether a comment, review, or issue author is a user account.
+ *
+ * Bots, mannequins, and organizations can't be looked up as users, and the
+ * whole lookup fails when one of them is included.
+ *
+ * @param {Object} actor The author, with its GraphQL `__typename`.
+ *
+ * @return {boolean} true if the author is a user account. false otherwise.
+ */
+function isUserAccount( actor ) {
+	return 'User' === actor.__typename;
 }
 
 /**

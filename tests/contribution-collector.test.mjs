@@ -22,6 +22,18 @@ const originalMethods = {
 const originalFetch = globalThis.fetch;
 
 /**
+ * Builds a comment, review, or issue author.
+ *
+ * @param {string} login        The login.
+ * @param {string} [__typename] The GraphQL actor type.
+ *
+ * @return {Object} The author.
+ */
+function actor( login, __typename = 'User' ) {
+	return { __typename, login };
+}
+
+/**
  * Number of times the collector was imported, used to bust the module cache.
  *
  * @type {number}
@@ -68,18 +80,21 @@ async function captureDebug( callback ) {
 }
 
 describe( 'getContributorsList', () => {
+	let requestedUsers;
+
 	beforeEach( () => {
 		process.env.GITHUB_REPOSITORY = 'WordPress/props-bot-action';
 		process.env.INPUT_TOKEN = 'token';
 
-		GitHub.prototype.getUsersData = async ( users ) =>
-			Object.fromEntries(
+		requestedUsers = [];
+		GitHub.prototype.getUsersData = async ( users ) => {
+			requestedUsers.push( ...users );
+			return Object.fromEntries(
 				users.map( ( login ) => [ login, { login } ] )
 			);
+		};
 
-		globalThis.fetch = async () => ( {
-			json: async () => ( { reviewer: { slug: 'reviewer-slug' } } ),
-		} );
+		globalThis.fetch = async () => ( { json: async () => ( {} ) } );
 	} );
 
 	afterEach( () => {
@@ -91,6 +106,9 @@ describe( 'getContributorsList', () => {
 	} );
 
 	it( 'logs the collected contributors in debug mode', async () => {
+		globalThis.fetch = async () => ( {
+			json: async () => ( { reviewer: { slug: 'reviewer-slug' } } ),
+		} );
 		GitHub.prototype.getContributorData = async () => ( {
 			commits: {
 				nodes: [
@@ -149,5 +167,55 @@ describe( 'getContributorsList', () => {
 			unlinked: [ 'committer' ],
 			hasGhostActivity: false,
 		} );
+	} );
+
+	it( 'leaves out authors that are not user accounts', async () => {
+		GitHub.prototype.getContributorData = async () => ( {
+			commits: { nodes: [] },
+			reviews: {
+				nodes: [
+					{ author: actor( 'reviewer' ) },
+					{ author: actor( 'some-review-app', 'Bot' ) },
+				],
+			},
+			comments: {
+				nodes: [
+					{ author: actor( 'commenter' ), body: 'Looks good.' },
+					{ author: actor( 'some-ci-app', 'Bot' ), body: 'Passed.' },
+				],
+			},
+			closingIssuesReferences: {
+				nodes: [
+					{
+						author: actor( 'imported-user', 'Mannequin' ),
+						comments: {
+							nodes: [
+								{ author: actor( 'issue-commenter' ) },
+								{
+									author: actor(
+										'WordPress',
+										'Organization'
+									),
+								},
+							],
+						},
+					},
+				],
+			},
+		} );
+
+		const { getContributorsList } = await importCollector();
+		const contributorsList = await getContributorsList();
+
+		assert.deepEqual( requestedUsers, [
+			'reviewer',
+			'commenter',
+			'issue-commenter',
+		] );
+		assert.deepEqual( contributorsList.unlinked, [
+			'reviewer',
+			'commenter',
+			'issue-commenter',
+		] );
 	} );
 } );
