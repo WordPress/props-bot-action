@@ -10,7 +10,6 @@ import GitHub from '../src/github.js';
  */
 const originalMethods = {
 	getContributorData: GitHub.prototype.getContributorData,
-	getUsersData: GitHub.prototype.getUsersData,
 	hasWriteAccess: GitHub.prototype.hasWriteAccess,
 };
 
@@ -80,21 +79,17 @@ async function captureDebug( callback ) {
 }
 
 describe( 'getContributorsList', () => {
-	let requestedUsers;
+	let lookedUpUsers;
 
 	beforeEach( () => {
 		process.env.GITHUB_REPOSITORY = 'WordPress/props-bot-action';
 		process.env.INPUT_TOKEN = 'token';
 
-		requestedUsers = [];
-		GitHub.prototype.getUsersData = async ( users ) => {
-			requestedUsers.push( ...users );
-			return Object.fromEntries(
-				users.map( ( login ) => [ login, { login } ] )
-			);
+		lookedUpUsers = [];
+		globalThis.fetch = async ( url, { body } ) => {
+			lookedUpUsers.push( ...JSON.parse( body ).github_user );
+			return { json: async () => ( {} ) };
 		};
-
-		globalThis.fetch = async () => ( { json: async () => ( {} ) } );
 	} );
 
 	afterEach( () => {
@@ -211,7 +206,8 @@ describe( 'getContributorsList', () => {
 		const { getContributorsList } = await importCollector();
 		const contributorsList = await getContributorsList();
 
-		assert.deepEqual( requestedUsers, [
+		assert.deepEqual( lookedUpUsers, [
+			'committer',
 			'reviewer',
 			'commenter',
 			'issue-commenter',

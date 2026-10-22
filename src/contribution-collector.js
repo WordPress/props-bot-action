@@ -222,23 +222,13 @@ export async function getContributorsList() {
 	core.debug( 'Added through Props Bot commands:' );
 	debugValue( contributors.added );
 
-	// We already have user info for committers, we need to grab it for everyone else.
-	if (
-		[
-			...contributors.reviewers,
-			...contributors.commenters,
-			...contributors.reporters,
-		].length > 0
-	) {
-		const otherContributorData = await gh.getUsersData( [
-			...contributors.reviewers,
-			...contributors.commenters,
-			...contributors.reporters,
-		] );
-
-		Object.values( otherContributorData ).forEach( ( user ) => {
-			userData[ user.login ] = user;
-		} );
+	// Only the WordPress.org slug is added to these entries later, so there's nothing to look up.
+	for ( const username of [
+		...contributors.reviewers,
+		...contributors.commenters,
+		...contributors.reporters,
+	] ) {
+		userData[ username ] = { login: username };
 	}
 
 	const githubUsers = [];
@@ -357,8 +347,8 @@ function isWellFormedEmail( email ) {
 /**
  * Checks if a user should be skipped.
  *
- * Bots, mannequins, and organizations are always skipped. They can't be looked
- * up as users, and the whole lookup fails when one of them is included.
+ * Bots, mannequins, and organizations are always skipped, since they can't
+ * link a WordPress.org account.
  *
  * @param {Object} actor The author, with its `login` and GraphQL `__typename`.
  *

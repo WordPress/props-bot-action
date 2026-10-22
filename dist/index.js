@@ -37626,16 +37626,6 @@ class github_GitHub {
 	}
 
 	/**
-	 * Sanitizes a string for a GraphQL query.
-	 *
-	 * @param {string} string The string to escape.
-	 * @return {string} The escaped string.
-	 */
-	escapeForGql( string ) {
-		return '_' + string.replace( /[./-]/g, '_' );
-	}
-
-	/**
 	 * Gets the contribution data for a given PR.
 	 *
 	 * Fetch the following data for the pull request:
@@ -37716,25 +37706,6 @@ class github_GitHub {
 		);
 
 		return data?.repository?.pullRequest;
-	}
-
-	/**
-	 * Gets the user data for a given array of usernames.
-	 *
-	 * @param {string[]} users The array of usernames.
-	 * @return {Promise<Object>} The user data.
-	 */
-	async getUsersData( users = [] ) {
-		const userData = await this.octokit.graphql(
-			'{' +
-				users.map(
-					( user ) =>
-						this.escapeForGql( user ) +
-						`: user(login: "${ user }") {databaseId, login, name, email}`
-				) +
-				'}'
-		);
-		return userData;
 	}
 
 	/**
@@ -38219,23 +38190,13 @@ async function getContributorsList() {
 	core_debug( 'Added through Props Bot commands:' );
 	debugValue( contributors.added );
 
-	// We already have user info for committers, we need to grab it for everyone else.
-	if (
-		[
-			...contributors.reviewers,
-			...contributors.commenters,
-			...contributors.reporters,
-		].length > 0
-	) {
-		const otherContributorData = await gh.getUsersData( [
-			...contributors.reviewers,
-			...contributors.commenters,
-			...contributors.reporters,
-		] );
-
-		Object.values( otherContributorData ).forEach( ( user ) => {
-			userData[ user.login ] = user;
-		} );
+	// Only the WordPress.org slug is added to these entries later, so there's nothing to look up.
+	for ( const username of [
+		...contributors.reviewers,
+		...contributors.commenters,
+		...contributors.reporters,
+	] ) {
+		userData[ username ] = { login: username };
 	}
 
 	const githubUsers = [];
@@ -38354,8 +38315,8 @@ function isWellFormedEmail( email ) {
 /**
  * Checks if a user should be skipped.
  *
- * Bots, mannequins, and organizations are always skipped. They can't be looked
- * up as users, and the whole lookup fails when one of them is included.
+ * Bots, mannequins, and organizations are always skipped, since they can't
+ * link a WordPress.org account.
  *
  * @param {Object} actor The author, with its `login` and GraphQL `__typename`.
  *

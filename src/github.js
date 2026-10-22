@@ -35,16 +35,6 @@ export default class GitHub {
 	}
 
 	/**
-	 * Sanitizes a string for a GraphQL query.
-	 *
-	 * @param {string} string The string to escape.
-	 * @return {string} The escaped string.
-	 */
-	escapeForGql( string ) {
-		return '_' + string.replace( /[./-]/g, '_' );
-	}
-
-	/**
 	 * Gets the contribution data for a given PR.
 	 *
 	 * Fetch the following data for the pull request:
@@ -125,25 +115,6 @@ export default class GitHub {
 		);
 
 		return data?.repository?.pullRequest;
-	}
-
-	/**
-	 * Gets the user data for a given array of usernames.
-	 *
-	 * @param {string[]} users The array of usernames.
-	 * @return {Promise<Object>} The user data.
-	 */
-	async getUsersData( users = [] ) {
-		const userData = await this.octokit.graphql(
-			'{' +
-				users.map(
-					( user ) =>
-						this.escapeForGql( user ) +
-						`: user(login: "${ user }") {databaseId, login, name, email}`
-				) +
-				'}'
-		);
-		return userData;
 	}
 
 	/**
