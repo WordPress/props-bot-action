@@ -71,7 +71,7 @@ export async function run() {
  * - Collects user data from WordPress.org.
  * - Generates a list of contributors.
  *
- * @return {Promise<null|string>} null if no contributors, otherwise an object with lists of contributors.
+ * @return {Promise<Object|undefined>} The lists of contributors, or undefined if there are none.
  * @async
  */
 export async function getContributorsList() {
