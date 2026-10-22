@@ -96,16 +96,25 @@ describe( 'getContributorsList', () => {
 				nodes: [
 					{
 						commit: {
-							author: { user: { login: 'committer' } },
+							author: {
+								user: {
+									__typename: 'User',
+									login: 'committer',
+								},
+							},
 						},
 					},
 				],
 			},
-			reviews: { nodes: [ { author: { login: 'reviewer' } } ] },
+			reviews: {
+				nodes: [
+					{ author: { __typename: 'User', login: 'reviewer' } },
+				],
+			},
 			comments: {
 				nodes: [
 					{
-						author: { login: 'maintainer' },
+						author: { __typename: 'User', login: 'maintainer' },
 						body: '@propsbot remove someone',
 					},
 				],
