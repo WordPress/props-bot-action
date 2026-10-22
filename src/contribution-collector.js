@@ -125,7 +125,7 @@ export async function getContributorsList() {
 				email,
 			};
 		} else {
-			if ( skipUser( commit.commit.author.user.login ) ) {
+			if ( skipUser( commit.commit.author.user ) ) {
 				continue;
 			}
 
@@ -145,7 +145,7 @@ export async function getContributorsList() {
 				hasGhostActivity = true;
 				return false;
 			}
-			return ! skipUser( review.author.login );
+			return ! skipUser( review.author );
 		} )
 		.forEach( ( review ) =>
 			contributors.reviewers.add( review.author.login )
@@ -167,7 +167,7 @@ export async function getContributorsList() {
 				return false;
 			}
 
-			return ! skipUser( comment.author.login );
+			return ! skipUser( comment.author );
 		} )
 		.forEach( ( comment ) =>
 			contributors.commenters.add( comment.author.login )
@@ -181,15 +181,12 @@ export async function getContributorsList() {
 		// Lay a proton trap for any more ghosts.
 		if ( ! linkedIssue.author ) {
 			hasGhostActivity = true;
-		} else if ( ! skipUser( linkedIssue.author.login ) ) {
+		} else if ( ! skipUser( linkedIssue.author ) ) {
 			contributors.reporters.add( linkedIssue.author.login );
 		}
 
 		for ( const issueComment of linkedIssue.comments.nodes ) {
-			if (
-				! issueComment.author ||
-				skipUser( issueComment.author.login )
-			) {
+			if ( ! issueComment.author || skipUser( issueComment.author ) ) {
 				continue;
 			}
 
@@ -225,23 +222,13 @@ export async function getContributorsList() {
 	core.debug( 'Added through Props Bot commands:' );
 	debugValue( contributors.added );
 
-	// We already have user info for committers, we need to grab it for everyone else.
-	if (
-		[
-			...contributors.reviewers,
-			...contributors.commenters,
-			...contributors.reporters,
-		].length > 0
-	) {
-		const otherContributorData = await gh.getUsersData( [
-			...contributors.reviewers,
-			...contributors.commenters,
-			...contributors.reporters,
-		] );
-
-		Object.values( otherContributorData ).forEach( ( user ) => {
-			userData[ user.login ] = user;
-		} );
+	// Only the WordPress.org slug is added to these entries later, so there's nothing to look up.
+	for ( const username of [
+		...contributors.reviewers,
+		...contributors.commenters,
+		...contributors.reporters,
+	] ) {
+		userData[ username ] = { login: username };
 	}
 
 	const githubUsers = [];
@@ -360,11 +347,15 @@ function isWellFormedEmail( email ) {
 /**
  * Checks if a user should be skipped.
  *
- * @param {string} username Username to check.
+ * Bots, mannequins, and organizations are always skipped, since they can't
+ * link a WordPress.org account.
  *
- * @return {boolean} true if the username should be skipped. false otherwise.
+ * @param {Object} actor The author, with its `login` and GraphQL `__typename`.
+ *
+ * @return {boolean} true if the user should be skipped. false otherwise.
  */
-function skipUser( username ) {
+function skipUser( actor ) {
+	const { __typename, login: username } = actor;
 	const skippedUsers = [
 		'codecov',
 		'coderabbitai',
@@ -377,6 +368,7 @@ function skipUser( username ) {
 	];
 
 	if (
+		'User' === __typename &&
 		-1 === skippedUsers.indexOf( username ) &&
 		! removedUsers.has( username.toLowerCase() ) &&
 		! contributorAlreadyPresent( username )

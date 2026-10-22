@@ -37537,8 +37537,9 @@ function parseCommands( body ) {
  * Replays the Props Bot commands in a list of comments.
  *
  * Comments are processed in the order given, so a later command for a user
- * replaces an earlier one. Commands from users without write access to the
- * repository are ignored. `refresh` commands are skipped, since the comment
+ * replaces an earlier one. Commands from bots and other accounts that aren't
+ * users, and from users without write access to the repository, are ignored.
+ * `refresh` commands are skipped, since the comment
  * itself already triggered the run.
  *
  * @param {Object[]}                               comments       The comments, oldest first.
@@ -37555,7 +37556,11 @@ async function getPropsOverrides( comments, hasWriteAccess ) {
 		const commands = parseCommands( comment.body ).commands.filter(
 			( { action } ) => 'refresh' !== action
 		);
-		if ( 0 === commands.length || ! comment.author ) {
+		if (
+			0 === commands.length ||
+			! comment.author ||
+			'User' !== comment.author.__typename
+		) {
 			continue;
 		}
 
@@ -37626,16 +37631,6 @@ class github_GitHub {
 	}
 
 	/**
-	 * Sanitizes a string for a GraphQL query.
-	 *
-	 * @param {string} string The string to escape.
-	 * @return {string} The escaped string.
-	 */
-	escapeForGql( string ) {
-		return '_' + string.replace( /[./-]/g, '_' );
-	}
-
-	/**
 	 * Gets the contribution data for a given PR.
 	 *
 	 * Fetch the following data for the pull request:
@@ -37664,6 +37659,7 @@ class github_GitHub {
 								commit {
 									author {
 										user {
+											__typename
 											databaseId
 											login
 											name
@@ -37678,6 +37674,7 @@ class github_GitHub {
 						reviews(first: 100) {
 							nodes {
 								author {
+									__typename
 									login
 								}
 							}
@@ -37685,6 +37682,7 @@ class github_GitHub {
 						comments(first: 100) {
 							nodes {
 								author {
+									__typename
 									login
 								}
 								body
@@ -37693,11 +37691,13 @@ class github_GitHub {
 						closingIssuesReferences(first:100){
 							nodes {
 								author {
+									__typename
 									login
 								}
 								comments(first:100) {
 									nodes {
 										author {
+											__typename
 											login
 										}
 									}
@@ -37711,25 +37711,6 @@ class github_GitHub {
 		);
 
 		return data?.repository?.pullRequest;
-	}
-
-	/**
-	 * Gets the user data for a given array of usernames.
-	 *
-	 * @param {string[]} users The array of usernames.
-	 * @return {Promise<Object>} The user data.
-	 */
-	async getUsersData( users = [] ) {
-		const userData = await this.octokit.graphql(
-			'{' +
-				users.map(
-					( user ) =>
-						this.escapeForGql( user ) +
-						`: user(login: "${ user }") {databaseId, login, name, email}`
-				) +
-				'}'
-		);
-		return userData;
 	}
 
 	/**
@@ -38117,7 +38098,7 @@ async function getContributorsList() {
 				email,
 			};
 		} else {
-			if ( skipUser( commit.commit.author.user.login ) ) {
+			if ( skipUser( commit.commit.author.user ) ) {
 				continue;
 			}
 
@@ -38137,7 +38118,7 @@ async function getContributorsList() {
 				hasGhostActivity = true;
 				return false;
 			}
-			return ! skipUser( review.author.login );
+			return ! skipUser( review.author );
 		} )
 		.forEach( ( review ) =>
 			contributors.reviewers.add( review.author.login )
@@ -38159,7 +38140,7 @@ async function getContributorsList() {
 				return false;
 			}
 
-			return ! skipUser( comment.author.login );
+			return ! skipUser( comment.author );
 		} )
 		.forEach( ( comment ) =>
 			contributors.commenters.add( comment.author.login )
@@ -38173,15 +38154,12 @@ async function getContributorsList() {
 		// Lay a proton trap for any more ghosts.
 		if ( ! linkedIssue.author ) {
 			hasGhostActivity = true;
-		} else if ( ! skipUser( linkedIssue.author.login ) ) {
+		} else if ( ! skipUser( linkedIssue.author ) ) {
 			contributors.reporters.add( linkedIssue.author.login );
 		}
 
 		for ( const issueComment of linkedIssue.comments.nodes ) {
-			if (
-				! issueComment.author ||
-				skipUser( issueComment.author.login )
-			) {
+			if ( ! issueComment.author || skipUser( issueComment.author ) ) {
 				continue;
 			}
 
@@ -38217,23 +38195,13 @@ async function getContributorsList() {
 	core_debug( 'Added through Props Bot commands:' );
 	debugValue( contributors.added );
 
-	// We already have user info for committers, we need to grab it for everyone else.
-	if (
-		[
-			...contributors.reviewers,
-			...contributors.commenters,
-			...contributors.reporters,
-		].length > 0
-	) {
-		const otherContributorData = await gh.getUsersData( [
-			...contributors.reviewers,
-			...contributors.commenters,
-			...contributors.reporters,
-		] );
-
-		Object.values( otherContributorData ).forEach( ( user ) => {
-			userData[ user.login ] = user;
-		} );
+	// Only the WordPress.org slug is added to these entries later, so there's nothing to look up.
+	for ( const username of [
+		...contributors.reviewers,
+		...contributors.commenters,
+		...contributors.reporters,
+	] ) {
+		userData[ username ] = { login: username };
 	}
 
 	const githubUsers = [];
@@ -38352,11 +38320,15 @@ function isWellFormedEmail( email ) {
 /**
  * Checks if a user should be skipped.
  *
- * @param {string} username Username to check.
+ * Bots, mannequins, and organizations are always skipped, since they can't
+ * link a WordPress.org account.
  *
- * @return {boolean} true if the username should be skipped. false otherwise.
+ * @param {Object} actor The author, with its `login` and GraphQL `__typename`.
+ *
+ * @return {boolean} true if the user should be skipped. false otherwise.
  */
-function skipUser( username ) {
+function skipUser( actor ) {
+	const { __typename, login: username } = actor;
 	const skippedUsers = [
 		'codecov',
 		'coderabbitai',
@@ -38369,6 +38341,7 @@ function skipUser( username ) {
 	];
 
 	if (
+		'User' === __typename &&
 		-1 === skippedUsers.indexOf( username ) &&
 		! removedUsers.has( username.toLowerCase() ) &&
 		! contributorAlreadyPresent( username )

@@ -10,7 +10,6 @@ import GitHub from '../src/github.js';
  */
 const originalMethods = {
 	getContributorData: GitHub.prototype.getContributorData,
-	getUsersData: GitHub.prototype.getUsersData,
 	hasWriteAccess: GitHub.prototype.hasWriteAccess,
 };
 
@@ -20,6 +19,18 @@ const originalMethods = {
  * @type {typeof fetch}
  */
 const originalFetch = globalThis.fetch;
+
+/**
+ * Builds a comment, review, or issue author.
+ *
+ * @param {string} login        The login.
+ * @param {string} [__typename] The GraphQL actor type.
+ *
+ * @return {Object} The author.
+ */
+function actor( login, __typename = 'User' ) {
+	return { __typename, login };
+}
 
 /**
  * Number of times the collector was imported, used to bust the module cache.
@@ -68,18 +79,17 @@ async function captureDebug( callback ) {
 }
 
 describe( 'getContributorsList', () => {
+	let lookedUpUsers;
+
 	beforeEach( () => {
 		process.env.GITHUB_REPOSITORY = 'WordPress/props-bot-action';
 		process.env.INPUT_TOKEN = 'token';
 
-		GitHub.prototype.getUsersData = async ( users ) =>
-			Object.fromEntries(
-				users.map( ( login ) => [ login, { login } ] )
-			);
-
-		globalThis.fetch = async () => ( {
-			json: async () => ( { reviewer: { slug: 'reviewer-slug' } } ),
-		} );
+		lookedUpUsers = [];
+		globalThis.fetch = async ( url, { body } ) => {
+			lookedUpUsers.push( ...JSON.parse( body ).github_user );
+			return { json: async () => ( {} ) };
+		};
 	} );
 
 	afterEach( () => {
@@ -91,6 +101,9 @@ describe( 'getContributorsList', () => {
 	} );
 
 	it( 'logs the collected contributors in debug mode', async () => {
+		globalThis.fetch = async () => ( {
+			json: async () => ( { reviewer: { slug: 'reviewer-slug' } } ),
+		} );
 		GitHub.prototype.getContributorData = async () => ( {
 			commits: {
 				nodes: [
@@ -149,5 +162,61 @@ describe( 'getContributorsList', () => {
 			unlinked: [ 'committer' ],
 			hasGhostActivity: false,
 		} );
+	} );
+
+	it( 'leaves out authors that are not user accounts', async () => {
+		GitHub.prototype.getContributorData = async () => ( {
+			commits: {
+				nodes: [
+					{ commit: { author: { user: actor( 'committer' ) } } },
+				],
+			},
+			reviews: {
+				nodes: [
+					{ author: actor( 'reviewer' ) },
+					{ author: actor( 'some-review-app', 'Bot' ) },
+				],
+			},
+			comments: {
+				nodes: [
+					{ author: actor( 'commenter' ), body: 'Looks good.' },
+					{ author: actor( 'some-ci-app', 'Bot' ), body: 'Passed.' },
+				],
+			},
+			closingIssuesReferences: {
+				nodes: [
+					{
+						author: actor( 'imported-user', 'Mannequin' ),
+						comments: {
+							nodes: [
+								{ author: actor( 'issue-commenter' ) },
+								{
+									author: actor(
+										'WordPress',
+										'Organization'
+									),
+								},
+							],
+						},
+					},
+				],
+			},
+		} );
+
+		const { getContributorsList } = await importCollector();
+		const contributorsList = await getContributorsList();
+
+		assert.deepEqual( lookedUpUsers, [
+			'committer',
+			'reviewer',
+			'commenter',
+			'issue-commenter',
+		] );
+		assert.deepEqual( contributorsList.unlinked, [
+			'committer',
+			'reviewer',
+			'commenter',
+			'issue-commenter',
+		] );
 	} );
 } );
