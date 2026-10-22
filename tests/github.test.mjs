@@ -168,6 +168,186 @@ describe( 'commentProps', () => {
 	} );
 } );
 
+describe( 'getContributorData', () => {
+	beforeEach( () => {
+		process.env.INPUT_TOKEN = 'token';
+	} );
+
+	afterEach( () => {
+		delete process.env.INPUT_TOKEN;
+	} );
+
+	const options = {
+		owner: 'WordPress',
+		repo: 'props-bot-action',
+		prNumber: 1,
+	};
+
+	/**
+	 * Builds a connection page as returned by the API.
+	 *
+	 * @param {Object[]} nodes        The nodes on the page.
+	 * @param {string}   [nextCursor] The cursor of the next page. The page is the last one when omitted.
+	 *
+	 * @return {Object} The connection page.
+	 */
+	function page( nodes, nextCursor ) {
+		return {
+			nodes,
+			pageInfo: {
+				hasNextPage: undefined !== nextCursor,
+				endCursor: nextCursor ?? null,
+			},
+		};
+	}
+
+	/**
+	 * Builds a linked issue with a page of comments.
+	 *
+	 * @param {string}   id           The issue's node ID.
+	 * @param {Object[]} comments     The comments on the first page.
+	 * @param {string}   [nextCursor] The cursor of the next page of comments.
+	 *
+	 * @return {Object} The linked issue.
+	 */
+	function issue( id, comments, nextCursor ) {
+		return {
+			id,
+			author: { __typename: 'User', login: `${ id }-reporter` },
+			comments: page( comments, nextCursor ),
+		};
+	}
+
+	/**
+	 * Builds a GitHub instance whose GraphQL requests are answered from a map of
+	 * follow-up pages, and records each request made.
+	 *
+	 * @param {Object} pullRequest The pull request returned by the first request.
+	 * @param {Object} pages       Follow-up pages, keyed by `<node ID> <field> <cursor>`.
+	 *
+	 * @return {Object} The instance and the recorded requests.
+	 */
+	function createGitHubWithPages( pullRequest, pages = {} ) {
+		const gh = new GitHub();
+		const requests = [];
+
+		gh.octokit = {
+			graphql: async ( query, variables ) => {
+				if ( undefined !== variables.prNumber ) {
+					requests.push( 'pull request' );
+					return { repository: { pullRequest } };
+				}
+
+				const [ , type, field ] = query.match(
+					/\.\.\. on (\w+) \{\s*(\w+)\(first: 100, after: \$cursor\)/
+				);
+				const key = `${ variables.id } ${ field } ${ variables.cursor }`;
+				requests.push( `${ type } ${ key }` );
+
+				return { node: { [ field ]: pages[ key ] } };
+			},
+		};
+
+		return { gh, requests };
+	}
+
+	/**
+	 * Builds a pull request whose connections each fit on one page.
+	 *
+	 * @param {Object} [connections] Connections to use instead of the empty ones.
+	 *
+	 * @return {Object} The pull request.
+	 */
+	function buildPullRequest( connections = {} ) {
+		return {
+			id: 'PR',
+			commits: page( [] ),
+			reviews: page( [] ),
+			comments: page( [] ),
+			closingIssuesReferences: page( [] ),
+			...connections,
+		};
+	}
+
+	it( 'makes a single request when everything fits on one page', async () => {
+		const data = buildPullRequest( {
+			comments: page( [ { body: 'one' } ] ),
+			closingIssuesReferences: page( [
+				issue( 'I1', [ { body: 'a' } ] ),
+			] ),
+		} );
+		const { gh, requests } = createGitHubWithPages( data );
+
+		assert.equal( await gh.getContributorData( options ), data );
+		assert.deepEqual( requests, [ 'pull request' ] );
+	} );
+
+	it( 'fetches the remaining pages of each pull request list in order', async () => {
+		const { gh, requests } = createGitHubWithPages(
+			buildPullRequest( {
+				commits: page( [ 'commit 1' ], 'c1' ),
+				comments: page( [ 'comment 1' ], 'm1' ),
+			} ),
+			{
+				'PR commits c1': page( [ 'commit 2' ] ),
+				'PR comments m1': page( [ 'comment 2' ], 'm2' ),
+				'PR comments m2': page( [ 'comment 3' ] ),
+			}
+		);
+
+		const data = await gh.getContributorData( options );
+
+		assert.deepEqual( data.commits.nodes, [ 'commit 1', 'commit 2' ] );
+		assert.deepEqual( data.comments.nodes, [
+			'comment 1',
+			'comment 2',
+			'comment 3',
+		] );
+		assert.deepEqual( requests, [
+			'pull request',
+			'PullRequest PR commits c1',
+			'PullRequest PR comments m1',
+			'PullRequest PR comments m2',
+		] );
+	} );
+
+	it( 'fetches the remaining comments of linked issues, including issues on later pages', async () => {
+		const { gh, requests } = createGitHubWithPages(
+			buildPullRequest( {
+				closingIssuesReferences: page(
+					[ issue( 'I1', [ 'I1 comment 1' ], 'a1' ) ],
+					'i1'
+				),
+			} ),
+			{
+				'PR closingIssuesReferences i1': page( [
+					issue( 'I2', [ 'I2 comment 1' ], 'b1' ),
+				] ),
+				'I1 comments a1': page( [ 'I1 comment 2' ] ),
+				'I2 comments b1': page( [ 'I2 comment 2' ] ),
+			}
+		);
+
+		const data = await gh.getContributorData( options );
+
+		assert.deepEqual(
+			data.closingIssuesReferences.nodes.map(
+				( { comments } ) => comments.nodes
+			),
+			[
+				[ 'I1 comment 1', 'I1 comment 2' ],
+				[ 'I2 comment 1', 'I2 comment 2' ],
+			]
+		);
+		assert.deepEqual( requests, [
+			'pull request',
+			'PullRequest PR closingIssuesReferences i1',
+			'Issue I1 comments a1',
+			'Issue I2 comments b1',
+		] );
+	} );
+} );
+
 describe( 'hasWriteAccess', () => {
 	beforeEach( () => {
 		process.env.INPUT_TOKEN = 'token';
