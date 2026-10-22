@@ -38039,7 +38039,7 @@ const userData = Object.create( null );
 /**
  * A list of contributors grouped by the type of contribution.
  *
- * @type {*[]}
+ * @type {Object<string, Set<string>>}
  */
 const contributors = contributorTypes.reduce( ( acc, type ) => {
 	acc[ type ] = new Set();
