@@ -20,14 +20,10 @@ on:
     issue_comment:
         types:
             - created
-    # This event will run everytime a new PR review is initially submitted.
+    # This event runs every time a review is submitted, which includes every inline comment and thread reply.
     pull_request_review:
         types:
             - submitted
-    # This event runs anytime a PR review comment is created or deleted.
-    pull_request_review_comment:
-        types:
-            - created
 
 # Disable permissions for all available scopes by default.
 # Any needed permissions should be configured at the job level.
@@ -46,20 +42,21 @@ jobs:
             # The action needs `write` permission for PRs in order to add a comment.
             pull-requests: write
         timeout-minutes: 20
-        # Cancels unfinished runs for the same PR. Set on the job, so runs that skip it never cancel one.
+        # Queues runs for the same PR, since a cancelled run notifies whoever triggered it. Set on the job, so skipped runs never wait.
         concurrency:
             group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || github.sha }}
-            cancel-in-progress: true
+            # Keeps every pending run, where the default would cancel all but the newest.
+            queue: max
         # The job will run when pull requests are open, ready for review and:
         #
         # - A comment is added to the pull request.
-        # - A review is created or commented on (unless PR originates from a fork).
+        # - A review is submitted, including a single comment or thread reply (unless PR originates from a fork).
         # - The pull request is opened, synchronized, marked ready for review, or reopened.
         # - The `props-bot` label is added to the pull request.
         if: |
             (
               github.event_name == 'issue_comment' && github.event.issue.pull_request ||
-              ( contains( fromJSON( '["pull_request_review", "pull_request_review_comment"]' ), github.event_name ) && ! github.event.pull_request.head.repo.fork ) ||
+              github.event_name == 'pull_request_review' && ! github.event.pull_request.head.repo.fork ||
               github.event_name == 'pull_request_target' && github.event.action != 'labeled' ||
               'props-bot' == github.event.label.name
             ) &&
