@@ -2,7 +2,7 @@ import * as core from '@actions/core';
 import * as github from '@actions/github';
 import { getPropsOverrides, parseCommands } from './commands.js';
 import GitHub from './github.js';
-import { getWPOrgData } from './utils.js';
+import { getWPOrgData, wpOrgUserExists } from './utils.js';
 
 const { context } = github;
 const gh = new GitHub();
@@ -260,11 +260,7 @@ export async function getContributorsList() {
 	core.debug( 'WordPress.org raw data:' );
 	debugValue( wpOrgData );
 
-	const linkedSlugs = new Set(
-		Object.values( wpOrgData )
-			.filter( Boolean )
-			.map( ( { slug } ) => slug.toLowerCase() )
-	);
+	const linkedSlugs = new Set();
 
 	// Add each contributor's wp.org username to their user data.
 	Object.keys( userData ).forEach( ( contributor ) => {
@@ -274,24 +270,32 @@ export async function getContributorsList() {
 		) {
 			userData[ contributor ].dotOrg = wpOrgData[ contributor ].slug;
 			contributorLists.svn.push( wpOrgData[ contributor ].slug );
-			return;
+			linkedSlugs.add( wpOrgData[ contributor ].slug );
 		}
+	} );
 
+	// Runs once all GitHub accounts are linked, since those can be the same WordPress.org accounts.
+	for ( const contributor of Object.keys( userData ) ) {
 		const slug = getWPOrgSlugFromEmail( contributor );
 		if ( ! slug ) {
-			return;
+			continue;
 		}
 
 		// Already credited through a GitHub account or another email, or removed through a Props Bot command.
 		if ( linkedSlugs.has( slug ) || removedUsers.has( slug ) ) {
 			contributors.committers.delete( contributor );
-			return;
+			continue;
+		}
+
+		// Unknown accounts stay unlinked, so a typo doesn't make it into the props.
+		if ( ! ( await wpOrgUserExists( slug ) ) ) {
+			continue;
 		}
 
 		linkedSlugs.add( slug );
 		userData[ contributor ].dotOrg = slug;
 		contributorLists.svn.push( slug );
-	} );
+	}
 
 	contributorLists.coAuthored = [];
 	contributorLists.unlinked = [];

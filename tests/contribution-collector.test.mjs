@@ -255,10 +255,17 @@ describe( 'getContributorsList', () => {
 		assert.deepEqual( contributorsList.unlinked, lookedUpUsers );
 	} );
 
-	it( 'credits unmatched authors with a WordPress.org email by that username, once, unless removed', async () => {
-		globalThis.fetch = async () => ( {
-			json: async () => ( { reviewer: { slug: 'reviewer-slug' } } ),
-		} );
+	it( 'credits unmatched authors with a WordPress.org email by that username, once, if it exists and is not removed', async () => {
+		const checkedProfiles = [];
+		globalThis.fetch = async ( url, { method } ) => {
+			if ( 'HEAD' === method ) {
+				checkedProfiles.push( url );
+				return { ok: ! url.includes( '/missing/' ) };
+			}
+			return {
+				json: async () => ( { reviewer: { slug: 'reviewer-slug' } } ),
+			};
+		};
 		GitHub.prototype.getContributorData = async () => ( {
 			commits: {
 				nodes: [
@@ -282,6 +289,11 @@ describe( 'getContributorsList', () => {
 							user: null,
 							name: 'Removed',
 							email: 'removed@git.wordpress.org',
+						},
+						{
+							user: null,
+							name: 'Missing',
+							email: 'missing@git.wordpress.org',
 						}
 					),
 				],
@@ -303,13 +315,19 @@ describe( 'getContributorsList', () => {
 		const contributorsList = await getContributorsList();
 
 		assert.deepEqual( contributorsList.svn, [
-			'co-author',
 			'reviewer-slug',
+			'co-author',
 		] );
 		assert.deepEqual( contributorsList.coAuthored, [
 			'Co-authored-by: co-author <co-author@git.wordpress.org>',
 			'Co-authored-by: reviewer <reviewer-slug@git.wordpress.org>',
 		] );
-		assert.deepEqual( contributorsList.unlinked, [] );
+		assert.deepEqual( contributorsList.unlinked, [
+			'missing@git.wordpress.org',
+		] );
+		assert.deepEqual( checkedProfiles, [
+			'https://profiles.wordpress.org/co-author/',
+			'https://profiles.wordpress.org/missing/',
+		] );
 	} );
 } );

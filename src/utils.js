@@ -24,3 +24,32 @@ export async function getWPOrgData( githubUsers ) {
 		body: JSON.stringify( { github_user: githubUsers } ),
 	} ).then( ( response ) => response.json() );
 }
+
+/**
+ * Checks whether a WordPress.org account exists.
+ *
+ * @param {string} slug The WordPress.org username.
+ *
+ * @return {Promise<boolean>} true if the account exists, false if it doesn't or the check fails.
+ */
+export async function wpOrgUserExists( slug ) {
+	try {
+		const response = await fetch(
+			`https://profiles.wordpress.org/${ encodeURIComponent( slug ) }/`,
+			{
+				method: 'HEAD',
+				headers: {
+					'User-Agent':
+						'Props Bot: ' +
+						github.context.repo.owner +
+						'/' +
+						github.context.repo.repo,
+				},
+			}
+		);
+
+		return response.ok;
+	} catch {
+		return false;
+	}
+}

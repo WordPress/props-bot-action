@@ -38049,6 +38049,35 @@ async function getWPOrgData( githubUsers ) {
 	} ).then( ( response ) => response.json() );
 }
 
+/**
+ * Checks whether a WordPress.org account exists.
+ *
+ * @param {string} slug The WordPress.org username.
+ *
+ * @return {Promise<boolean>} true if the account exists, false if it doesn't or the check fails.
+ */
+async function wpOrgUserExists( slug ) {
+	try {
+		const response = await fetch(
+			`https://profiles.wordpress.org/${ encodeURIComponent( slug ) }/`,
+			{
+				method: 'HEAD',
+				headers: {
+					'User-Agent':
+						'Props Bot: ' +
+						github_context.repo.owner +
+						'/' +
+						github_context.repo.repo,
+				},
+			}
+		);
+
+		return response.ok;
+	} catch {
+		return false;
+	}
+}
+
 ;// CONCATENATED MODULE: ./src/contribution-collector.js
 
 
@@ -38312,11 +38341,7 @@ async function getContributorsList() {
 	core_debug( 'WordPress.org raw data:' );
 	debugValue( wpOrgData );
 
-	const linkedSlugs = new Set(
-		Object.values( wpOrgData )
-			.filter( Boolean )
-			.map( ( { slug } ) => slug.toLowerCase() )
-	);
+	const linkedSlugs = new Set();
 
 	// Add each contributor's wp.org username to their user data.
 	Object.keys( userData ).forEach( ( contributor ) => {
@@ -38326,24 +38351,32 @@ async function getContributorsList() {
 		) {
 			userData[ contributor ].dotOrg = wpOrgData[ contributor ].slug;
 			contributorLists.svn.push( wpOrgData[ contributor ].slug );
-			return;
+			linkedSlugs.add( wpOrgData[ contributor ].slug );
 		}
+	} );
 
+	// Runs once all GitHub accounts are linked, since those can be the same WordPress.org accounts.
+	for ( const contributor of Object.keys( userData ) ) {
 		const slug = getWPOrgSlugFromEmail( contributor );
 		if ( ! slug ) {
-			return;
+			continue;
 		}
 
 		// Already credited through a GitHub account or another email, or removed through a Props Bot command.
 		if ( linkedSlugs.has( slug ) || removedUsers.has( slug ) ) {
 			contributors.committers.delete( contributor );
-			return;
+			continue;
+		}
+
+		// Unknown accounts stay unlinked, so a typo doesn't make it into the props.
+		if ( ! ( await wpOrgUserExists( slug ) ) ) {
+			continue;
 		}
 
 		linkedSlugs.add( slug );
 		userData[ contributor ].dotOrg = slug;
 		contributorLists.svn.push( slug );
-	} );
+	}
 
 	contributorLists.coAuthored = [];
 	contributorLists.unlinked = [];
