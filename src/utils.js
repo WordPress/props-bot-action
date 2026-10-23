@@ -1,3 +1,4 @@
+import * as core from '@actions/core';
 import * as github from '@actions/github';
 
 /**
@@ -48,8 +49,17 @@ export async function wpOrgUserExists( slug ) {
 			}
 		);
 
+		if ( ! response.ok && 404 !== response.status ) {
+			core.warning(
+				`Could not check the WordPress.org account ${ slug }: HTTP ${ response.status }`
+			);
+		}
+
 		return response.ok;
-	} catch {
+	} catch ( e ) {
+		core.warning(
+			`Could not check the WordPress.org account ${ slug }: ${ e.message }`
+		);
 		return false;
 	}
 }

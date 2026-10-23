@@ -218,7 +218,7 @@ describe( 'getContributorsList', () => {
 		] );
 	} );
 
-	it( 'credits co-authors from Co-authored-by trailers once, leaving out coding agents', async () => {
+	it( 'credits co-authors from Co-authored-by trailers once, leaving out bots and coding agents', async () => {
 		GitHub.prototype.getContributorData = async () => ( {
 			commits: {
 				nodes: [
@@ -231,6 +231,7 @@ describe( 'getContributorsList', () => {
 						{ user: actor( 'co-author' ) },
 						{ user: actor( 'committer' ) },
 						{ user: actor( 'Copilot' ) },
+						{ user: actor( 'pre-commit-ci[bot]' ) },
 						{
 							user: null,
 							name: 'Unlinked',

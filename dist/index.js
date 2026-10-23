@@ -38024,6 +38024,7 @@ class github_GitHub {
 ;// CONCATENATED MODULE: ./src/utils.js
 
 
+
 /**
  * Get WordPress.org user data for a list of GitHub usernames.
  *
@@ -38072,8 +38073,17 @@ async function wpOrgUserExists( slug ) {
 			}
 		);
 
+		if ( ! response.ok && 404 !== response.status ) {
+			warning(
+				`Could not check the WordPress.org account ${ slug }: HTTP ${ response.status }`
+			);
+		}
+
 		return response.ok;
-	} catch {
+	} catch ( e ) {
+		warning(
+			`Could not check the WordPress.org account ${ slug }: ${ e.message }`
+		);
 		return false;
 	}
 }
@@ -38491,13 +38501,14 @@ function skipUser( actor ) {
 		'copilot-swe-agent',
 		'cursoragent',
 		'dependabot', // Here for backwards compatibility with old pull requests.
-		'dependabot[bot]',
 		'github-actions',
 		'github-advanced-security',
 	];
 
 	if (
 		'User' === __typename &&
+		// GitHub resolves commit authors and co-authors that are apps to a `User` with a `[bot]` login.
+		! username.endsWith( '[bot]' ) &&
 		-1 === skippedUsers.indexOf( username ) &&
 		! removedUsers.has( username.toLowerCase() ) &&
 		! contributorAlreadyPresent( username )

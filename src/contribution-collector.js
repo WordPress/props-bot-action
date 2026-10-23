@@ -410,13 +410,14 @@ function skipUser( actor ) {
 		'copilot-swe-agent',
 		'cursoragent',
 		'dependabot', // Here for backwards compatibility with old pull requests.
-		'dependabot[bot]',
 		'github-actions',
 		'github-advanced-security',
 	];
 
 	if (
 		'User' === __typename &&
+		// GitHub resolves commit authors and co-authors that are apps to a `User` with a `[bot]` login.
+		! username.endsWith( '[bot]' ) &&
 		-1 === skippedUsers.indexOf( username ) &&
 		! removedUsers.has( username.toLowerCase() ) &&
 		! contributorAlreadyPresent( username )
