@@ -1,99 +1,24 @@
-name: Props Bot
+name: Test the Action
 
 on:
-    # This event runs anytime a PR is (re)opened, updated, marked ready for review, or labeled.
-    # GitHub does not allow filtering the `labeled` event by a specific label.
-    # However, the logic below will short-circuit the workflow when the `props-bot` label is not the one being added.
-    #
-    # Note: This differs from the example workflow because code is executed from within the repository, making
-    # pull_request_target unsafe. Pull requests from forked repositories get a read-only token, so their list of
-    # contributors is posted by a comment, such as `@propsbot refresh`, which runs from trunk.
     pull_request:
-        types:
-            - opened
-            - synchronize
-            - reopened
-            - labeled
-            - ready_for_review
-    # This event runs anytime a comment is added or deleted.
-    # You cannot filter this event for PR comments only.
-    # However, the logic below does short-circuit the workflow for issues.
-    issue_comment:
-        types:
-            - created
-    # This event will run everytime a new PR review is initially submitted.
-    pull_request_review:
-        types:
-            - submitted
-    # This event runs anytime a PR review comment is created or deleted.
-    pull_request_review_comment:
-        types:
-            - created
-
-# Disable permissions for all available scopes by default.
-# Any needed permissions should be configured at the job level.
-permissions: {}
 
 jobs:
-    # Compiles a list of props for a pull request.
+    # Tests that the Action works as expected.
     #
     # Performs the following steps:
     # - Checks out the repository.
-    # - Collects a list of contributor props and leaves a comment.
-    # - Removes the props-bot label, if necessary.
-    props-bot:
-        # Note: This differs from the example workflow because `Run Props Bot` is a required status check.
+    # - Runs the Action without posting, since the Props Bot workflow posts the props comment.
+    test:
         name: Run Props Bot
         runs-on: ubuntu-latest
-        permissions:
-            # The action needs `write` permission for PRs in order to add a comment.
-            pull-requests: write
-            # Note: This is not required in the example workflow, but the checkout step needs it.
-            contents: read
-        timeout-minutes: 20
-        # Cancels unfinished runs for the same PR. Set on the job, so runs that skip it never cancel one.
-        concurrency:
-            group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || github.sha }}
-            cancel-in-progress: true
-        # The job will run when pull requests are open, ready for review and:
-        #
-        # - A comment is added to the pull request.
-        # - A review is created or commented on (unless PR originates from a fork).
-        # - The pull request is opened, synchronized, marked ready for review, or reopened.
-        # - The `props-bot` label is added to the pull request.
-        #
-        # Note: pull_request_target has been replaced with pull_request for security reasons. See note above.
-        if: |
-            (
-              github.event_name == 'issue_comment' && github.event.issue.pull_request ||
-              ( contains( fromJSON( '["pull_request_review", "pull_request_review_comment"]' ), github.event_name ) && ! github.event.pull_request.head.repo.fork ) ||
-              github.event_name == 'pull_request' && github.event.action != 'labeled' ||
-              'props-bot' == github.event.label.name
-            ) &&
-            ( ! github.event.pull_request.draft && github.event.pull_request.state == 'open' || ! github.event.issue.draft && github.event.issue.state == 'open' )
 
         steps:
-            # Note: This is not required in the example workflow, but it is here.
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-            - name: Gather a list of contributors
-              # Note: this was changed to a local reference to ensure that changes within pull requests are tested
-              # before merging.
+            - name: Run the Action
               uses: ./
               with:
                   format: 'all'
-
-            - name: Remove the props-bot label
-              uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-              if: ${{ github.event.action == 'labeled' && 'props-bot' == github.event.label.name }}
-              with:
-                  retries: 2
-                  retry-exempt-status-codes: 418
-                  script: |
-                      github.rest.issues.removeLabel({
-                        owner: context.repo.owner,
-                        repo: context.repo.repo,
-                        issue_number: '${{ github.event.number }}',
-                        name: 'props-bot'
-                      });
+                  post-comment: false
