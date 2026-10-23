@@ -4,16 +4,26 @@ updates:
       directory: /
       schedule:
           interval: daily
+      open-pull-requests-limit: 20
+      cooldown:
+        default-days: 7
       groups:
           github-actions:
-              patterns:
-                  - '*'
+              applies-to: version-updates
+              update-types:
+                  - minor
+                  - patch
 
     - package-ecosystem: npm
       directory: /
       schedule:
           interval: daily
+      open-pull-requests-limit: 20
+      cooldown:
+        default-days: 7
       groups:
           npm-packages:
-              patterns:
-                  - '*'
+              applies-to: version-updates
+              update-types:
+                  - minor
+                  - patch

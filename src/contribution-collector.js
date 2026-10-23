@@ -1,7 +1,8 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
+import { getPropsOverrides, parseCommands } from './commands.js';
 import GitHub from './github.js';
-import { getWPOrgData } from './utils.js';
+import { getWPOrgData, wpOrgUserExists } from './utils.js';
 
 const { context } = github;
 const gh = new GitHub();
@@ -22,20 +23,31 @@ const contributorTypes = [
 	'reviewers',
 	'commenters',
 	'reporters',
+	'added',
 	'unlinked',
 ];
 
 /**
- * List of user data objects.
+ * Lowercased usernames removed from the props through Props Bot commands.
  *
- * @type {*[]}
+ * @type {Set<string>}
  */
-const userData = [];
+const removedUsers = new Set();
+
+/**
+ * Map of user data objects, keyed by contributor identity.
+ *
+ * Uses a null-prototype object so untrusted keys (e.g. an author email of
+ * `length` or `__proto__`) cannot collide with built-in properties.
+ *
+ * @type {Object}
+ */
+const userData = Object.create( null );
 
 /**
  * A list of contributors grouped by the type of contribution.
  *
- * @type {*[]}
+ * @type {Object<string, Set<string>>}
  */
 const contributors = contributorTypes.reduce( ( acc, type ) => {
 	acc[ type ] = new Set();
@@ -59,7 +71,7 @@ export async function run() {
  * - Collects user data from WordPress.org.
  * - Generates a list of contributors.
  *
- * @return {Promise<null|string>} null if no contributors, otherwise an object with lists of contributors.
+ * @return {Promise<Object|undefined>} The lists of contributors, or undefined if there are none.
  * @async
  */
 export async function getContributorsList() {
@@ -70,15 +82,27 @@ export async function getContributorsList() {
 	} );
 
 	core.debug( 'Raw contributor data:' );
-	core.debug( contributorData );
+	debugValue( contributorData );
+
+	const overrides = await getPropsOverrides(
+		contributorData.comments.nodes,
+		( username ) => gh.hasWriteAccess( { owner, repo, username } )
+	);
+	overrides.removed.forEach( ( username ) => removedUsers.add( username ) );
+
+	core.debug( 'Props Bot command overrides:' );
+	debugValue( overrides );
 
 	// Keep track of whether the Ghostbusters are needed.
 	let hasGhostActivity = false;
 
-	// Process pull request commits.
-	for ( const commit of contributorData?.commits?.nodes || [] ) {
+	// Process pull request commit authors, including co-authors from `Co-authored-by` trailers.
+	const commitAuthors = ( contributorData?.commits?.nodes || [] ).flatMap(
+		( { commit } ) => commit.authors.nodes
+	);
+	for ( const author of commitAuthors ) {
 		// Set a trap for some ghosts.
-		if ( ! commit.commit.author ) {
+		if ( ! author ) {
 			hasGhostActivity = true;
 			continue;
 		}
@@ -87,25 +111,34 @@ export async function getContributorsList() {
 		 * Commits are sometimes made by an email that is not associated with a GitHub account.
 		 * For these, info that may help us guess later.
 		 */
-		if ( null === commit.commit.author.user ) {
-			contributors.committers.add( commit.commit.author.email );
-			userData[ commit.commit.author.email ] = {
-				name: commit.commit.author.name,
-				email: commit.commit.author.email,
-			};
-		} else {
-			if ( skipUser( commit.commit.author.user.login ) ) {
+		if ( null === author.user ) {
+			const email = author.email;
+
+			if ( ! isWellFormedEmail( email ) ) {
+				core.warning(
+					`Ignoring an unlinked commit with an untrusted author email: ${ email }`
+				);
+				hasGhostActivity = true;
 				continue;
 			}
 
-			contributors.committers.add( commit.commit.author.user.login );
-			userData[ commit.commit.author.user.login ] =
-				commit.commit.author.user;
+			contributors.committers.add( email );
+			userData[ email ] = {
+				name: author.name,
+				email,
+			};
+		} else {
+			if ( skipUser( author.user ) ) {
+				continue;
+			}
+
+			contributors.committers.add( author.user.login );
+			userData[ author.user.login ] = author.user;
 		}
 	}
 
 	core.debug( 'Committers:' );
-	core.debug( contributors.committers );
+	debugValue( contributors.committers );
 
 	// Process pull request reviews.
 	contributorData.reviews.nodes
@@ -114,14 +147,14 @@ export async function getContributorsList() {
 				hasGhostActivity = true;
 				return false;
 			}
-			return ! skipUser( review.author.login );
+			return ! skipUser( review.author );
 		} )
 		.forEach( ( review ) =>
 			contributors.reviewers.add( review.author.login )
 		);
 
 	core.debug( 'Reviewers:' );
-	core.debug( contributors.reviewers );
+	debugValue( contributors.reviewers );
 
 	// Process pull request comments.
 	contributorData.comments.nodes
@@ -130,29 +163,32 @@ export async function getContributorsList() {
 				hasGhostActivity = true;
 				return false;
 			}
-			return ! skipUser( comment.author.login );
+
+			// Asking Props Bot to change the props is not a contribution in itself.
+			if ( parseCommands( comment.body ).isCommandOnly ) {
+				return false;
+			}
+
+			return ! skipUser( comment.author );
 		} )
 		.forEach( ( comment ) =>
 			contributors.commenters.add( comment.author.login )
 		);
 
 	core.debug( 'Commenters:' );
-	core.debug( contributors.commenters );
+	debugValue( contributors.commenters );
 
 	// Process reporters and commenters for linked issues.
 	for ( const linkedIssue of contributorData.closingIssuesReferences.nodes ) {
 		// Lay a proton trap for any more ghosts.
 		if ( ! linkedIssue.author ) {
 			hasGhostActivity = true;
-		} else if ( ! skipUser( linkedIssue.author.login ) ) {
+		} else if ( ! skipUser( linkedIssue.author ) ) {
 			contributors.reporters.add( linkedIssue.author.login );
 		}
 
 		for ( const issueComment of linkedIssue.comments.nodes ) {
-			if (
-				! issueComment.author ||
-				skipUser( issueComment.author.login )
-			) {
+			if ( ! issueComment.author || skipUser( issueComment.author ) ) {
 				continue;
 			}
 
@@ -161,28 +197,40 @@ export async function getContributorsList() {
 	}
 
 	core.debug( 'Reporters:' );
-	core.debug( contributors.reporters );
+	debugValue( contributors.reporters );
 
 	core.debug( 'Commenters (including linked issues):' );
-	core.debug( contributors.commenters );
+	debugValue( contributors.commenters );
 
-	// We already have user info for committers, we need to grab it for everyone else.
-	if (
-		[
-			...contributors.reviewers,
-			...contributors.commenters,
-			...contributors.reporters,
-		].length > 0
-	) {
-		const otherContributorData = await gh.getUsersData( [
-			...contributors.reviewers,
-			...contributors.commenters,
-			...contributors.reporters,
-		] );
+	// Process contributors added through Props Bot commands.
+	for ( const username of overrides.added ) {
+		const user = await gh.getUser( username );
 
-		Object.values( otherContributorData ).forEach( ( user ) => {
-			userData[ user.login ] = user;
-		} );
+		if ( ! user || 'User' !== user.type ) {
+			core.warning(
+				`Ignoring the request to add @${ username }, who is not a GitHub user.`
+			);
+			continue;
+		}
+
+		if ( contributorAlreadyPresent( user.login ) ) {
+			continue;
+		}
+
+		contributors.added.add( user.login );
+		userData[ user.login ] = user;
+	}
+
+	core.debug( 'Added through Props Bot commands:' );
+	debugValue( contributors.added );
+
+	// Only the WordPress.org slug is added to these entries later, so there's nothing to look up.
+	for ( const username of [
+		...contributors.reviewers,
+		...contributors.commenters,
+		...contributors.reporters,
+	] ) {
+		userData[ username ] = { login: username };
 	}
 
 	const githubUsers = [];
@@ -199,10 +247,10 @@ export async function getContributorsList() {
 	}
 
 	core.debug( 'GitHub contributor usernames:' );
-	core.debug( githubUsers );
+	debugValue( githubUsers );
 
 	// List to return from the function.
-	const contributorLists = [];
+	const contributorLists = {};
 	contributorLists.github = [];
 
 	// Collect WordPress.org usernames
@@ -210,7 +258,9 @@ export async function getContributorsList() {
 	contributorLists.svn = [];
 
 	core.debug( 'WordPress.org raw data:' );
-	core.debug( wpOrgData );
+	debugValue( wpOrgData );
+
+	const linkedSlugs = new Set();
 
 	// Add each contributor's wp.org username to their user data.
 	Object.keys( userData ).forEach( ( contributor ) => {
@@ -220,16 +270,40 @@ export async function getContributorsList() {
 		) {
 			userData[ contributor ].dotOrg = wpOrgData[ contributor ].slug;
 			contributorLists.svn.push( wpOrgData[ contributor ].slug );
+			linkedSlugs.add( wpOrgData[ contributor ].slug );
 		}
 	} );
+
+	// Runs once all GitHub accounts are linked, since those can be the same WordPress.org accounts.
+	for ( const contributor of Object.keys( userData ) ) {
+		const slug = getWPOrgSlugFromEmail( contributor );
+		if ( ! slug ) {
+			continue;
+		}
+
+		// Already credited through a GitHub account or another email, or removed through a Props Bot command.
+		if ( linkedSlugs.has( slug ) || removedUsers.has( slug ) ) {
+			contributors.committers.delete( contributor );
+			continue;
+		}
+
+		// Unknown accounts stay unlinked, so a typo doesn't make it into the props.
+		if ( ! ( await wpOrgUserExists( slug ) ) ) {
+			continue;
+		}
+
+		linkedSlugs.add( slug );
+		userData[ contributor ].dotOrg = slug;
+		contributorLists.svn.push( slug );
+	}
 
 	contributorLists.coAuthored = [];
 	contributorLists.unlinked = [];
 
 	contributorTypes.forEach( ( priority ) => {
 		// Skip an empty set of contributors.
-		if ( contributors[ priority ].length === 0 ) {
-			return [];
+		if ( contributors[ priority ].size === 0 ) {
+			return;
 		}
 
 		[ ...contributors[ priority ] ]
@@ -250,8 +324,11 @@ export async function getContributorsList() {
 					return null;
 				}
 
+				// Contributors without a GitHub account are keyed by email, so they go by their WordPress.org username.
+				const name = username.includes( '@' ) ? dotOrg : username;
+
 				return contributorLists.coAuthored.push(
-					`Co-authored-by: ${ username } <${ dotOrg }@git.wordpress.org>`
+					`Co-authored-by: ${ name } <${ dotOrg }@git.wordpress.org>`
 				);
 			} )
 			.filter( ( el ) => el );
@@ -260,30 +337,89 @@ export async function getContributorsList() {
 	// Include findings so Ghostbuster HQ can be notified.
 	contributorLists.hasGhostActivity = hasGhostActivity;
 
-	core.debug( contributorLists );
+	debugValue( contributorLists );
 
 	return contributorLists;
 }
 
 /**
+ * Logs a value in debug mode.
+ *
+ * `core.debug()` serializes non-strings with `JSON.stringify()`, which turns a
+ * Set into `{}`.
+ *
+ * @param {unknown} value The value to log.
+ */
+function debugValue( value ) {
+	core.debug(
+		JSON.stringify( value, ( key, item ) =>
+			item instanceof Set ? [ ...item ] : item
+		)
+	);
+}
+
+/**
+ * Checks whether an unlinked commit author email is a single, well-formed
+ * address.
+ *
+ * @param {string} email The commit author email to validate.
+ *
+ * @return {boolean} true if the email is a single, well-formed address.
+ */
+function isWellFormedEmail( email ) {
+	return (
+		'string' === typeof email &&
+		/^[\p{L}\p{M}\p{N}'_%+-]+(?:\.[\p{L}\p{M}\p{N}'_%+-]+)*@(?:[\p{L}\p{M}\p{N}](?:[\p{L}\p{M}\p{N}-]*[\p{L}\p{M}\p{N}])?\.)+[\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N}-]*[\p{L}\p{M}\p{N}]$/u.test(
+			email
+		)
+	);
+}
+
+/**
+ * Gets the WordPress.org username from a `@git.wordpress.org` email.
+ *
+ * Commit authors and co-authors that GitHub can't match to an account are
+ * collected by email, and these emails already name the WordPress.org account.
+ *
+ * @param {string} email The email.
+ *
+ * @return {string|undefined} The lowercased username, or undefined for any other email.
+ */
+function getWPOrgSlugFromEmail( email ) {
+	return email.match( /^(.+)@git\.wordpress\.org$/i )?.[ 1 ].toLowerCase();
+}
+
+/**
  * Checks if a user should be skipped.
  *
- * @param {string} username Username to check.
+ * Bots, mannequins, and organizations are always skipped, since they can't
+ * link a WordPress.org account.
  *
- * @return {boolean} true if the username should be skipped. false otherwise.
+ * @param {Object} actor The author, with its `login` and GraphQL `__typename`.
+ *
+ * @return {boolean} true if the user should be skipped. false otherwise.
  */
-function skipUser( username ) {
+function skipUser( actor ) {
+	const { __typename, login: username } = actor;
 	const skippedUsers = [
-		'github-actions',
-		'dependabot[bot]',
-		'dependabot', // Here for backwards compatibility with old pull requests.
-		'github-advanced-security',
+		'claude',
 		'codecov',
+		'coderabbitai',
+		'Copilot',
 		'copilot-pull-request-reviewer',
+		'copilot-swe-agent',
+		'cursoragent',
+		'dependabot', // Here for backwards compatibility with old pull requests.
+		'github-actions',
+		'github-advanced-security',
 	];
 
 	if (
+		'User' === __typename &&
+		// GitHub resolves commit authors and co-authors that are apps to a `User` with a `[bot]` login.
+		! username.endsWith( '[bot]' ) &&
 		-1 === skippedUsers.indexOf( username ) &&
+		! removedUsers.has( username.toLowerCase() ) &&
 		! contributorAlreadyPresent( username )
 	) {
 		return false;
