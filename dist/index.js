@@ -37598,6 +37598,50 @@ async function getPropsOverrides( comments, hasWriteAccess ) {
 
 
 
+/**
+ * The fields fetched for the author of a review, comment, or linked issue.
+ *
+ * @type {string}
+ */
+const authorFields = 'author { __typename login }';
+
+/**
+ * The fields fetched for each node of the pull request connections that
+ * contributors are collected from, keyed by connection field.
+ *
+ * @type {Object<string, string>}
+ */
+const pullRequestConnections = {
+	commits: `commit {
+		author {
+			user { __typename databaseId login name email }
+			name
+			email
+		}
+	}`,
+	reviews: authorFields,
+	comments: `${ authorFields } body`,
+	closingIssuesReferences: `id
+		${ authorFields }
+		${ connectionQuery( 'comments', authorFields ) }`,
+};
+
+/**
+ * Builds the query for one page of a connection, including its page info.
+ *
+ * @param {string}  field         The name of the connection field.
+ * @param {string}  nodeFields    The fields to fetch for each node.
+ * @param {boolean} [afterCursor] Whether to start after the `$cursor` variable.
+ *
+ * @return {string} The connection query.
+ */
+function connectionQuery( field, nodeFields, afterCursor = false ) {
+	return `${ field }(first: 100${ afterCursor ? ', after: $cursor' : '' }) {
+		nodes { ${ nodeFields } }
+		pageInfo { hasNextPage endCursor }
+	}`;
+}
+
 class github_GitHub {
 	constructor() {
 		const token =
@@ -37635,10 +37679,14 @@ class github_GitHub {
 	 *
 	 * Fetch the following data for the pull request:
 	 * - Commits with author details.
-	 * - Reviews with author logins.
-	 * - Comments with author logins and bodies.
-	 * - Linked issues with author logins.
-	 * - Comments on linked issues with author logins.
+	 * - Reviews with author logins and account types.
+	 * - Comments with author logins, account types, and bodies.
+	 * - Linked issues with author logins and account types.
+	 * - Comments on linked issues with author logins and account types.
+	 *
+	 * Everything fits in a single request for most pull requests. Any list
+	 * with more than one page is completed with follow-up requests, keeping
+	 * its nodes in order.
 	 *
 	 * @param {Object} options          The options for getting the contribution data.
 	 * @param {string} options.owner    The owner of the repository.
@@ -37650,67 +37698,82 @@ class github_GitHub {
 	async getContributorData( { owner, repo, prNumber } ) {
 		info( 'Gathering contributor list.' );
 
+		const connections = Object.entries( pullRequestConnections )
+			.map( ( [ field, nodeFields ] ) =>
+				connectionQuery( field, nodeFields )
+			)
+			.join( '\n' );
+
 		const data = await this.octokit.graphql(
 			`query($owner:String!, $name:String!, $prNumber:Int!) {
 				repository(owner:$owner, name:$name) {
 					pullRequest(number:$prNumber) {
-						commits(first: 100) {
-							nodes {
-								commit {
-									author {
-										user {
-											__typename
-											databaseId
-											login
-											name
-											email
-										}
-										name
-										email
-									}
-								}
-							}
-						}
-						reviews(first: 100) {
-							nodes {
-								author {
-									__typename
-									login
-								}
-							}
-						}
-						comments(first: 100) {
-							nodes {
-								author {
-									__typename
-									login
-								}
-								body
-							}
-						}
-						closingIssuesReferences(first:100){
-							nodes {
-								author {
-									__typename
-									login
-								}
-								comments(first:100) {
-									nodes {
-										author {
-											__typename
-											login
-										}
-									}
-								}
-							}
-						}
+						id
+						${ connections }
 					}
 				}
 			}`,
 			{ owner, name: repo, prNumber }
 		);
 
-		return data?.repository?.pullRequest;
+		const pullRequest = data?.repository?.pullRequest;
+		if ( ! pullRequest ) {
+			return pullRequest;
+		}
+
+		for ( const [ field, nodeFields ] of Object.entries(
+			pullRequestConnections
+		) ) {
+			await this.fetchRemainingPages( pullRequest[ field ], {
+				id: pullRequest.id,
+				type: 'PullRequest',
+				field,
+				nodeFields,
+			} );
+		}
+
+		// Runs once all linked issues are in, since those on later pages can have more comments too.
+		for ( const issue of pullRequest.closingIssuesReferences.nodes ) {
+			await this.fetchRemainingPages( issue.comments, {
+				id: issue.id,
+				type: 'Issue',
+				field: 'comments',
+				nodeFields: authorFields,
+			} );
+		}
+
+		return pullRequest;
+	}
+
+	/**
+	 * Fetches the remaining pages of a connection and appends their nodes to it.
+	 *
+	 * @param {Object} connection         The connection, with its first page of nodes and its `pageInfo`.
+	 * @param {Object} options            The options for fetching the pages.
+	 * @param {string} options.id         The global node ID of the object the connection belongs to.
+	 * @param {string} options.type       The GraphQL type of that object.
+	 * @param {string} options.field      The name of the connection field.
+	 * @param {string} options.nodeFields The fields to fetch for each node.
+	 *
+	 * @return {Promise<void>} A promise that resolves when every page has been fetched.
+	 */
+	async fetchRemainingPages( connection, { id, type, field, nodeFields } ) {
+		while ( connection.pageInfo?.hasNextPage ) {
+			const data = await this.octokit.graphql(
+				`query($id:ID!, $cursor:String!) {
+					node(id:$id) {
+						... on ${ type } {
+							${ connectionQuery( field, nodeFields, true ) }
+						}
+					}
+				}`,
+				{ id, cursor: connection.pageInfo.endCursor }
+			);
+
+			const page = data.node[ field ];
+			connection.nodes.push( ...page.nodes );
+			connection.pageInfo = page.pageInfo;
+		}
 	}
 
 	/**
