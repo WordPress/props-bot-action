@@ -46,10 +46,11 @@ jobs:
             # The action needs `write` permission for PRs in order to add a comment.
             pull-requests: write
         timeout-minutes: 20
-        # Cancels unfinished runs for the same PR. Set on the job, so runs that skip it never cancel one.
+        # Queues runs for the same PR, since a cancelled run notifies whoever triggered it. Set on the job, so skipped runs never wait.
         concurrency:
             group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || github.sha }}
-            cancel-in-progress: true
+            # Keeps every pending run, where the default would cancel all but the newest.
+            queue: max
         # The job will run when pull requests are open, ready for review and:
         #
         # - A comment is added to the pull request.
