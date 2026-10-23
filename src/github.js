@@ -9,6 +9,15 @@ import * as github from '@actions/github';
 const authorFields = 'author { __typename login }';
 
 /**
+ * The fields fetched for each author of a commit.
+ *
+ * @type {string}
+ */
+const commitAuthorFields = `user { __typename databaseId login name email }
+	name
+	email`;
+
+/**
  * The fields fetched for each node of the pull request connections that
  * contributors are collected from, keyed by connection field.
  *
@@ -16,11 +25,8 @@ const authorFields = 'author { __typename login }';
  */
 const pullRequestConnections = {
 	commits: `commit {
-		author {
-			user { __typename databaseId login name email }
-			name
-			email
-		}
+		id
+		${ connectionQuery( 'authors', commitAuthorFields ) }
 	}`,
 	reviews: authorFields,
 	comments: `${ authorFields } body`,
@@ -82,7 +88,8 @@ export default class GitHub {
 	 * Gets the contribution data for a given PR.
 	 *
 	 * Fetch the following data for the pull request:
-	 * - Commits with author details.
+	 * - Commits with the details of their authors, including co-authors
+	 *   credited through `Co-authored-by` trailers.
 	 * - Reviews with author logins and account types.
 	 * - Comments with author logins, account types, and bodies.
 	 * - Linked issues with author logins and account types.
@@ -136,7 +143,16 @@ export default class GitHub {
 			} );
 		}
 
-		// Runs once all linked issues are in, since those on later pages can have more comments too.
+		// Runs once all commits and linked issues are in, since those on later pages can have more authors or comments too.
+		for ( const { commit } of pullRequest.commits.nodes ) {
+			await this.fetchRemainingPages( commit.authors, {
+				id: commit.id,
+				type: 'Commit',
+				field: 'authors',
+				nodeFields: commitAuthorFields,
+			} );
+		}
+
 		for ( const issue of pullRequest.closingIssuesReferences.nodes ) {
 			await this.fetchRemainingPages( issue.comments, {
 				id: issue.id,

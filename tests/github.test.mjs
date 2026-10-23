@@ -219,6 +219,19 @@ describe( 'getContributorData', () => {
 	}
 
 	/**
+	 * Builds a pull request commit with a page of authors.
+	 *
+	 * @param {string}   id           The commit's node ID.
+	 * @param {Object[]} authors      The authors on the first page.
+	 * @param {string}   [nextCursor] The cursor of the next page of authors.
+	 *
+	 * @return {Object} The pull request commit.
+	 */
+	function commit( id, authors, nextCursor ) {
+		return { commit: { id, authors: page( authors, nextCursor ) } };
+	}
+
+	/**
 	 * Builds a GitHub instance whose GraphQL requests are answered from a map of
 	 * follow-up pages, and records each request made.
 	 *
@@ -285,11 +298,11 @@ describe( 'getContributorData', () => {
 	it( 'fetches the remaining pages of each pull request list in order', async () => {
 		const { gh, requests } = createGitHubWithPages(
 			buildPullRequest( {
-				commits: page( [ 'commit 1' ], 'c1' ),
+				commits: page( [ commit( 'C1', [] ) ], 'c1' ),
 				comments: page( [ 'comment 1' ], 'm1' ),
 			} ),
 			{
-				'PR commits c1': page( [ 'commit 2' ] ),
+				'PR commits c1': page( [ commit( 'C2', [] ) ] ),
 				'PR comments m1': page( [ 'comment 2' ], 'm2' ),
 				'PR comments m2': page( [ 'comment 3' ] ),
 			}
@@ -297,7 +310,10 @@ describe( 'getContributorData', () => {
 
 		const data = await gh.getContributorData( options );
 
-		assert.deepEqual( data.commits.nodes, [ 'commit 1', 'commit 2' ] );
+		assert.deepEqual(
+			data.commits.nodes.map( ( node ) => node.commit.id ),
+			[ 'C1', 'C2' ]
+		);
 		assert.deepEqual( data.comments.nodes, [
 			'comment 1',
 			'comment 2',
@@ -344,6 +360,40 @@ describe( 'getContributorData', () => {
 			'PullRequest PR closingIssuesReferences i1',
 			'Issue I1 comments a1',
 			'Issue I2 comments b1',
+		] );
+	} );
+
+	it( 'fetches the remaining authors of commits, including commits on later pages', async () => {
+		const { gh, requests } = createGitHubWithPages(
+			buildPullRequest( {
+				commits: page(
+					[ commit( 'C1', [ 'C1 author 1' ], 'a1' ) ],
+					'c1'
+				),
+			} ),
+			{
+				'PR commits c1': page( [
+					commit( 'C2', [ 'C2 author 1' ], 'b1' ),
+				] ),
+				'C1 authors a1': page( [ 'C1 author 2' ] ),
+				'C2 authors b1': page( [ 'C2 author 2' ] ),
+			}
+		);
+
+		const data = await gh.getContributorData( options );
+
+		assert.deepEqual(
+			data.commits.nodes.map( ( node ) => node.commit.authors.nodes ),
+			[
+				[ 'C1 author 1', 'C1 author 2' ],
+				[ 'C2 author 1', 'C2 author 2' ],
+			]
+		);
+		assert.deepEqual( requests, [
+			'pull request',
+			'PullRequest PR commits c1',
+			'Commit C1 authors a1',
+			'Commit C2 authors b1',
 		] );
 	} );
 } );

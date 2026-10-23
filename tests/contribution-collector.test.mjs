@@ -33,6 +33,17 @@ function actor( login, __typename = 'User' ) {
 }
 
 /**
+ * Builds a pull request commit with its git author and co-authors.
+ *
+ * @param {...Object} authors The commit's authors, git author first.
+ *
+ * @return {Object} The commit.
+ */
+function commit( ...authors ) {
+	return { commit: { authors: { nodes: authors } } };
+}
+
+/**
  * Number of times the collector was imported, used to bust the module cache.
  *
  * @type {number}
@@ -106,18 +117,7 @@ describe( 'getContributorsList', () => {
 		} );
 		GitHub.prototype.getContributorData = async () => ( {
 			commits: {
-				nodes: [
-					{
-						commit: {
-							author: {
-								user: {
-									__typename: 'User',
-									login: 'committer',
-								},
-							},
-						},
-					},
-				],
+				nodes: [ commit( { user: actor( 'committer' ) } ) ],
 			},
 			reviews: {
 				nodes: [
@@ -167,9 +167,7 @@ describe( 'getContributorsList', () => {
 	it( 'leaves out authors that are not user accounts', async () => {
 		GitHub.prototype.getContributorData = async () => ( {
 			commits: {
-				nodes: [
-					{ commit: { author: { user: actor( 'committer' ) } } },
-				],
+				nodes: [ commit( { user: actor( 'committer' ) } ) ],
 			},
 			reviews: {
 				nodes: [
@@ -218,5 +216,42 @@ describe( 'getContributorsList', () => {
 			'commenter',
 			'issue-commenter',
 		] );
+	} );
+
+	it( 'credits co-authors from Co-authored-by trailers once, leaving out coding agents', async () => {
+		GitHub.prototype.getContributorData = async () => ( {
+			commits: {
+				nodes: [
+					commit(
+						{ user: actor( 'committer' ) },
+						{ user: actor( 'co-author' ) },
+						{ user: actor( 'claude' ) }
+					),
+					commit(
+						{ user: actor( 'co-author' ) },
+						{ user: actor( 'committer' ) },
+						{ user: actor( 'Copilot' ) },
+						{
+							user: null,
+							name: 'Unlinked',
+							email: 'unlinked@example.com',
+						}
+					),
+				],
+			},
+			reviews: { nodes: [ { author: actor( 'co-author' ) } ] },
+			comments: { nodes: [] },
+			closingIssuesReferences: { nodes: [] },
+		} );
+
+		const { getContributorsList } = await importCollector();
+		const contributorsList = await getContributorsList();
+
+		assert.deepEqual( lookedUpUsers, [
+			'committer',
+			'co-author',
+			'unlinked@example.com',
+		] );
+		assert.deepEqual( contributorsList.unlinked, lookedUpUsers );
 	} );
 } );

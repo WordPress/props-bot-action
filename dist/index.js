@@ -37606,6 +37606,15 @@ async function getPropsOverrides( comments, hasWriteAccess ) {
 const authorFields = 'author { __typename login }';
 
 /**
+ * The fields fetched for each author of a commit.
+ *
+ * @type {string}
+ */
+const commitAuthorFields = `user { __typename databaseId login name email }
+	name
+	email`;
+
+/**
  * The fields fetched for each node of the pull request connections that
  * contributors are collected from, keyed by connection field.
  *
@@ -37613,11 +37622,8 @@ const authorFields = 'author { __typename login }';
  */
 const pullRequestConnections = {
 	commits: `commit {
-		author {
-			user { __typename databaseId login name email }
-			name
-			email
-		}
+		id
+		${ connectionQuery( 'authors', commitAuthorFields ) }
 	}`,
 	reviews: authorFields,
 	comments: `${ authorFields } body`,
@@ -37678,7 +37684,8 @@ class github_GitHub {
 	 * Gets the contribution data for a given PR.
 	 *
 	 * Fetch the following data for the pull request:
-	 * - Commits with author details.
+	 * - Commits with the details of their authors, including co-authors
+	 *   credited through `Co-authored-by` trailers.
 	 * - Reviews with author logins and account types.
 	 * - Comments with author logins, account types, and bodies.
 	 * - Linked issues with author logins and account types.
@@ -37732,7 +37739,16 @@ class github_GitHub {
 			} );
 		}
 
-		// Runs once all linked issues are in, since those on later pages can have more comments too.
+		// Runs once all commits and linked issues are in, since those on later pages can have more authors or comments too.
+		for ( const { commit } of pullRequest.commits.nodes ) {
+			await this.fetchRemainingPages( commit.authors, {
+				id: commit.id,
+				type: 'Commit',
+				field: 'authors',
+				nodeFields: commitAuthorFields,
+			} );
+		}
+
 		for ( const issue of pullRequest.closingIssuesReferences.nodes ) {
 			await this.fetchRemainingPages( issue.comments, {
 				id: issue.id,
@@ -38132,10 +38148,13 @@ async function getContributorsList() {
 	// Keep track of whether the Ghostbusters are needed.
 	let hasGhostActivity = false;
 
-	// Process pull request commits.
-	for ( const commit of contributorData?.commits?.nodes || [] ) {
+	// Process pull request commit authors, including co-authors from `Co-authored-by` trailers.
+	const commitAuthors = ( contributorData?.commits?.nodes || [] ).flatMap(
+		( { commit } ) => commit.authors.nodes
+	);
+	for ( const author of commitAuthors ) {
 		// Set a trap for some ghosts.
-		if ( ! commit.commit.author ) {
+		if ( ! author ) {
 			hasGhostActivity = true;
 			continue;
 		}
@@ -38144,8 +38163,8 @@ async function getContributorsList() {
 		 * Commits are sometimes made by an email that is not associated with a GitHub account.
 		 * For these, info that may help us guess later.
 		 */
-		if ( null === commit.commit.author.user ) {
-			const email = commit.commit.author.email;
+		if ( null === author.user ) {
+			const email = author.email;
 
 			if ( ! isWellFormedEmail( email ) ) {
 				warning(
@@ -38157,17 +38176,16 @@ async function getContributorsList() {
 
 			contributors.committers.add( email );
 			userData[ email ] = {
-				name: commit.commit.author.name,
+				name: author.name,
 				email,
 			};
 		} else {
-			if ( skipUser( commit.commit.author.user ) ) {
+			if ( skipUser( author.user ) ) {
 				continue;
 			}
 
-			contributors.committers.add( commit.commit.author.user.login );
-			userData[ commit.commit.author.user.login ] =
-				commit.commit.author.user;
+			contributors.committers.add( author.user.login );
+			userData[ author.user.login ] = author.user;
 		}
 	}
 
@@ -38393,10 +38411,13 @@ function isWellFormedEmail( email ) {
 function skipUser( actor ) {
 	const { __typename, login: username } = actor;
 	const skippedUsers = [
+		'claude',
 		'codecov',
 		'coderabbitai',
+		'Copilot',
 		'copilot-pull-request-reviewer',
 		'copilot-swe-agent',
+		'cursoragent',
 		'dependabot', // Here for backwards compatibility with old pull requests.
 		'dependabot[bot]',
 		'github-actions',

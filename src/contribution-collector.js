@@ -96,10 +96,13 @@ export async function getContributorsList() {
 	// Keep track of whether the Ghostbusters are needed.
 	let hasGhostActivity = false;
 
-	// Process pull request commits.
-	for ( const commit of contributorData?.commits?.nodes || [] ) {
+	// Process pull request commit authors, including co-authors from `Co-authored-by` trailers.
+	const commitAuthors = ( contributorData?.commits?.nodes || [] ).flatMap(
+		( { commit } ) => commit.authors.nodes
+	);
+	for ( const author of commitAuthors ) {
 		// Set a trap for some ghosts.
-		if ( ! commit.commit.author ) {
+		if ( ! author ) {
 			hasGhostActivity = true;
 			continue;
 		}
@@ -108,8 +111,8 @@ export async function getContributorsList() {
 		 * Commits are sometimes made by an email that is not associated with a GitHub account.
 		 * For these, info that may help us guess later.
 		 */
-		if ( null === commit.commit.author.user ) {
-			const email = commit.commit.author.email;
+		if ( null === author.user ) {
+			const email = author.email;
 
 			if ( ! isWellFormedEmail( email ) ) {
 				core.warning(
@@ -121,17 +124,16 @@ export async function getContributorsList() {
 
 			contributors.committers.add( email );
 			userData[ email ] = {
-				name: commit.commit.author.name,
+				name: author.name,
 				email,
 			};
 		} else {
-			if ( skipUser( commit.commit.author.user ) ) {
+			if ( skipUser( author.user ) ) {
 				continue;
 			}
 
-			contributors.committers.add( commit.commit.author.user.login );
-			userData[ commit.commit.author.user.login ] =
-				commit.commit.author.user;
+			contributors.committers.add( author.user.login );
+			userData[ author.user.login ] = author.user;
 		}
 	}
 
@@ -357,10 +359,13 @@ function isWellFormedEmail( email ) {
 function skipUser( actor ) {
 	const { __typename, login: username } = actor;
 	const skippedUsers = [
+		'claude',
 		'codecov',
 		'coderabbitai',
+		'Copilot',
 		'copilot-pull-request-reviewer',
 		'copilot-swe-agent',
+		'cursoragent',
 		'dependabot', // Here for backwards compatibility with old pull requests.
 		'dependabot[bot]',
 		'github-actions',
