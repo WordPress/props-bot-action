@@ -20,12 +20,21 @@ const contributorsList = {
 };
 
 /**
- * The message `contributorsList` renders to with `format: all`, split at the
- * intro. Asserted in full so a change to any part has to be made deliberately.
+ * The intro of the message `contributorsList` renders to with `format: all`.
+ *
+ * The message is asserted in full so a change to any part has to be made
+ * deliberately.
+ *
+ * @type {string}
  */
 const intro =
 	'The following accounts have interacted with this PR and/or linked issues. I will continue to update these lists as activity occurs.\n\n';
 
+/**
+ * The message `contributorsList` renders to with `format: all`, after the intro.
+ *
+ * @type {string}
+ */
 const expectedList =
 	'## Core SVN\n\n' +
 	'Core Committers: Use this line as a base for the props when committing in SVN:\n' +
@@ -41,8 +50,18 @@ const expectedList =
 	'- `@propsbot refresh` to refresh this list. Adding the `props-bot` label works too.\n\n' +
 	'</details>\n';
 
+/**
+ * The message `contributorsList` renders to with `format: all`.
+ *
+ * @type {string}
+ */
 const expectedMessage = intro + expectedList;
 
+/**
+ * The body of the comment posted with that message.
+ *
+ * @type {string}
+ */
 const expectedPostedBody = `${ COMMENT_MARKER }\n${ expectedMessage }`;
 
 let outputDir;
