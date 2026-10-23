@@ -37716,6 +37716,10 @@ class github_GitHub {
 			this.postComment ||
 			getInput( 'include-intro' ) === '' ||
 			getBooleanInput( 'include-intro' );
+
+		this.failOnError =
+			getInput( 'fail-on-error' ) !== '' &&
+			getBooleanInput( 'fail-on-error' );
 	}
 
 	/**
@@ -38061,6 +38065,11 @@ class github_GitHub {
 			try {
 				await this.octokit.rest.issues.createComment( comment );
 			} catch ( e ) {
+				if ( this.failOnError ) {
+					throw new Error( `Error creating comment: ${ e.message }`, {
+						cause: e,
+					} );
+				}
 				error( `Error creating comment: ${ e.message }` );
 			}
 		}

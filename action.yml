@@ -13,6 +13,10 @@ inputs:
         description: 'Whether `comment-body` starts with the intro paragraph. Only applies when `post-comment` is `false`; a posted comment always keeps it.'
         required: false
         default: 'true'
+    fail-on-error:
+        description: 'Whether to fail the workflow run when the comment cannot be posted. Leave it off for workflows that run on `pull_request` and accept pull requests from forks, since their token is read-only there.'
+        required: false
+        default: 'false'
     token:
         description: 'GitHub token. Requires `pull-requests: read` permission, or `write` when `post-comment` is `true`. On a private repository, it additionally requires `issues: read` permission.'
         required: true

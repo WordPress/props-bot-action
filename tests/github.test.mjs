@@ -152,6 +152,7 @@ describe( 'commentProps', () => {
 		delete process.env.INPUT_FORMAT;
 		delete process.env[ 'INPUT_POST-COMMENT' ];
 		delete process.env[ 'INPUT_INCLUDE-INTRO' ];
+		delete process.env[ 'INPUT_FAIL-ON-ERROR' ];
 	} );
 
 	it( 'posts the comment with the marker by default and outputs the body without it', async () => {
@@ -290,6 +291,64 @@ describe( 'commentProps', () => {
 
 		assert.equal( calls.createComment, 0 );
 		assert.equal( getOutput( 'comment-body' ), '' );
+	} );
+
+	it( 'fails when the comment cannot be posted and `fail-on-error` is true', async () => {
+		process.env[ 'INPUT_FAIL-ON-ERROR' ] = 'true';
+		const { gh } = createGitHub();
+		gh.octokit.rest.issues.createComment = () => {
+			throw new Error( 'Resource not accessible by integration' );
+		};
+
+		await assert.rejects(
+			gh.commentProps( { context, contributorsList } ),
+			{
+				message:
+					'Error creating comment: Resource not accessible by integration',
+			}
+		);
+	} );
+
+	it( 'fails only when neither updating nor creating the comment works and `fail-on-error` is true', async () => {
+		process.env[ 'INPUT_FAIL-ON-ERROR' ] = 'true';
+		const { gh, calls } = createGitHub();
+		gh.octokit.paginate.iterator = () => [
+			{
+				data: [
+					{ id: 3, user: { type: 'Bot' }, body: expectedMessage },
+				],
+			},
+		];
+		gh.octokit.rest.issues.updateComment = () => {
+			throw new Error( 'Not Found' );
+		};
+
+		await gh.commentProps( { context, contributorsList } );
+
+		assert.equal( calls.createComment, 1 );
+
+		gh.octokit.rest.issues.createComment = () => {
+			throw new Error( 'Resource not accessible by integration' );
+		};
+
+		await assert.rejects(
+			gh.commentProps( { context, contributorsList } ),
+			{
+				message:
+					'Error creating comment: Resource not accessible by integration',
+			}
+		);
+	} );
+
+	it( 'does not fail when the comment cannot be posted by default', async () => {
+		const { gh } = createGitHub();
+		gh.octokit.rest.issues.createComment = () => {
+			throw new Error( 'Resource not accessible by integration' );
+		};
+
+		await gh.commentProps( { context, contributorsList } );
+
+		assert.equal( getOutput( 'comment-body' ), expectedMessage );
 	} );
 } );
 
