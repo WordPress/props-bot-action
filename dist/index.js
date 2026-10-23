@@ -38334,8 +38334,8 @@ async function getContributorsList() {
 			return;
 		}
 
-		// Already credited through a GitHub account, or through another email.
-		if ( linkedSlugs.has( slug ) ) {
+		// Already credited through a GitHub account or another email, or removed through a Props Bot command.
+		if ( linkedSlugs.has( slug ) || removedUsers.has( slug ) ) {
 			contributors.committers.delete( contributor );
 			return;
 		}

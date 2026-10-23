@@ -255,7 +255,7 @@ describe( 'getContributorsList', () => {
 		assert.deepEqual( contributorsList.unlinked, lookedUpUsers );
 	} );
 
-	it( 'credits unmatched authors with a WordPress.org email by that username, once', async () => {
+	it( 'credits unmatched authors with a WordPress.org email by that username, once, unless removed', async () => {
 		globalThis.fetch = async () => ( {
 			json: async () => ( { reviewer: { slug: 'reviewer-slug' } } ),
 		} );
@@ -277,14 +277,27 @@ describe( 'getContributorsList', () => {
 							user: null,
 							name: 'Reviewer',
 							email: 'reviewer-slug@git.wordpress.org',
+						},
+						{
+							user: null,
+							name: 'Removed',
+							email: 'removed@git.wordpress.org',
 						}
 					),
 				],
 			},
 			reviews: { nodes: [ { author: actor( 'reviewer' ) } ] },
-			comments: { nodes: [] },
+			comments: {
+				nodes: [
+					{
+						author: actor( 'maintainer' ),
+						body: '@propsbot remove removed',
+					},
+				],
+			},
 			closingIssuesReferences: { nodes: [] },
 		} );
+		GitHub.prototype.hasWriteAccess = async () => true;
 
 		const { getContributorsList } = await importCollector();
 		const contributorsList = await getContributorsList();
