@@ -37606,6 +37606,15 @@ async function getPropsOverrides( comments, hasWriteAccess ) {
 const authorFields = 'author { __typename login }';
 
 /**
+ * The fields fetched for each author of a commit.
+ *
+ * @type {string}
+ */
+const commitAuthorFields = `user { __typename databaseId login name email }
+	name
+	email`;
+
+/**
  * The fields fetched for each node of the pull request connections that
  * contributors are collected from, keyed by connection field.
  *
@@ -37613,11 +37622,8 @@ const authorFields = 'author { __typename login }';
  */
 const pullRequestConnections = {
 	commits: `commit {
-		author {
-			user { __typename databaseId login name email }
-			name
-			email
-		}
+		id
+		${ connectionQuery( 'authors', commitAuthorFields ) }
 	}`,
 	reviews: authorFields,
 	comments: `${ authorFields } body`,
@@ -37678,7 +37684,8 @@ class github_GitHub {
 	 * Gets the contribution data for a given PR.
 	 *
 	 * Fetch the following data for the pull request:
-	 * - Commits with author details.
+	 * - Commits with the details of their authors, including co-authors
+	 *   credited through `Co-authored-by` trailers.
 	 * - Reviews with author logins and account types.
 	 * - Comments with author logins, account types, and bodies.
 	 * - Linked issues with author logins and account types.
@@ -37732,7 +37739,16 @@ class github_GitHub {
 			} );
 		}
 
-		// Runs once all linked issues are in, since those on later pages can have more comments too.
+		// Runs once all commits and linked issues are in, since those on later pages can have more authors or comments too.
+		for ( const { commit } of pullRequest.commits.nodes ) {
+			await this.fetchRemainingPages( commit.authors, {
+				id: commit.id,
+				type: 'Commit',
+				field: 'authors',
+				nodeFields: commitAuthorFields,
+			} );
+		}
+
 		for ( const issue of pullRequest.closingIssuesReferences.nodes ) {
 			await this.fetchRemainingPages( issue.comments, {
 				id: issue.id,
@@ -38008,6 +38024,7 @@ class github_GitHub {
 ;// CONCATENATED MODULE: ./src/utils.js
 
 
+
 /**
  * Get WordPress.org user data for a list of GitHub usernames.
  *
@@ -38031,6 +38048,44 @@ async function getWPOrgData( githubUsers ) {
 		},
 		body: JSON.stringify( { github_user: githubUsers } ),
 	} ).then( ( response ) => response.json() );
+}
+
+/**
+ * Checks whether a WordPress.org account exists.
+ *
+ * @param {string} slug The WordPress.org username.
+ *
+ * @return {Promise<boolean>} true if the account exists, false if it doesn't or the check fails.
+ */
+async function wpOrgUserExists( slug ) {
+	try {
+		const response = await fetch(
+			`https://profiles.wordpress.org/${ encodeURIComponent( slug ) }/`,
+			{
+				method: 'HEAD',
+				headers: {
+					'User-Agent':
+						'Props Bot: ' +
+						github_context.repo.owner +
+						'/' +
+						github_context.repo.repo,
+				},
+			}
+		);
+
+		if ( ! response.ok && 404 !== response.status ) {
+			warning(
+				`Could not check the WordPress.org account ${ slug }: HTTP ${ response.status }`
+			);
+		}
+
+		return response.ok;
+	} catch ( e ) {
+		warning(
+			`Could not check the WordPress.org account ${ slug }: ${ e.message }`
+		);
+		return false;
+	}
 }
 
 ;// CONCATENATED MODULE: ./src/contribution-collector.js
@@ -38132,10 +38187,13 @@ async function getContributorsList() {
 	// Keep track of whether the Ghostbusters are needed.
 	let hasGhostActivity = false;
 
-	// Process pull request commits.
-	for ( const commit of contributorData?.commits?.nodes || [] ) {
+	// Process pull request commit authors, including co-authors from `Co-authored-by` trailers.
+	const commitAuthors = ( contributorData?.commits?.nodes || [] ).flatMap(
+		( { commit } ) => commit.authors.nodes
+	);
+	for ( const author of commitAuthors ) {
 		// Set a trap for some ghosts.
-		if ( ! commit.commit.author ) {
+		if ( ! author ) {
 			hasGhostActivity = true;
 			continue;
 		}
@@ -38144,8 +38202,8 @@ async function getContributorsList() {
 		 * Commits are sometimes made by an email that is not associated with a GitHub account.
 		 * For these, info that may help us guess later.
 		 */
-		if ( null === commit.commit.author.user ) {
-			const email = commit.commit.author.email;
+		if ( null === author.user ) {
+			const email = author.email;
 
 			if ( ! isWellFormedEmail( email ) ) {
 				warning(
@@ -38157,17 +38215,16 @@ async function getContributorsList() {
 
 			contributors.committers.add( email );
 			userData[ email ] = {
-				name: commit.commit.author.name,
+				name: author.name,
 				email,
 			};
 		} else {
-			if ( skipUser( commit.commit.author.user ) ) {
+			if ( skipUser( author.user ) ) {
 				continue;
 			}
 
-			contributors.committers.add( commit.commit.author.user.login );
-			userData[ commit.commit.author.user.login ] =
-				commit.commit.author.user;
+			contributors.committers.add( author.user.login );
+			userData[ author.user.login ] = author.user;
 		}
 	}
 
@@ -38294,6 +38351,8 @@ async function getContributorsList() {
 	core_debug( 'WordPress.org raw data:' );
 	debugValue( wpOrgData );
 
+	const linkedSlugs = new Set();
+
 	// Add each contributor's wp.org username to their user data.
 	Object.keys( userData ).forEach( ( contributor ) => {
 		if (
@@ -38302,8 +38361,32 @@ async function getContributorsList() {
 		) {
 			userData[ contributor ].dotOrg = wpOrgData[ contributor ].slug;
 			contributorLists.svn.push( wpOrgData[ contributor ].slug );
+			linkedSlugs.add( wpOrgData[ contributor ].slug );
 		}
 	} );
+
+	// Runs once all GitHub accounts are linked, since those can be the same WordPress.org accounts.
+	for ( const contributor of Object.keys( userData ) ) {
+		const slug = getWPOrgSlugFromEmail( contributor );
+		if ( ! slug ) {
+			continue;
+		}
+
+		// Already credited through a GitHub account or another email, or removed through a Props Bot command.
+		if ( linkedSlugs.has( slug ) || removedUsers.has( slug ) ) {
+			contributors.committers.delete( contributor );
+			continue;
+		}
+
+		// Unknown accounts stay unlinked, so a typo doesn't make it into the props.
+		if ( ! ( await wpOrgUserExists( slug ) ) ) {
+			continue;
+		}
+
+		linkedSlugs.add( slug );
+		userData[ contributor ].dotOrg = slug;
+		contributorLists.svn.push( slug );
+	}
 
 	contributorLists.coAuthored = [];
 	contributorLists.unlinked = [];
@@ -38332,8 +38415,11 @@ async function getContributorsList() {
 					return null;
 				}
 
+				// Contributors without a GitHub account are keyed by email, so they go by their WordPress.org username.
+				const name = username.includes( '@' ) ? dotOrg : username;
+
 				return contributorLists.coAuthored.push(
-					`Co-authored-by: ${ username } <${ dotOrg }@git.wordpress.org>`
+					`Co-authored-by: ${ name } <${ dotOrg }@git.wordpress.org>`
 				);
 			} )
 			.filter( ( el ) => el );
@@ -38381,6 +38467,20 @@ function isWellFormedEmail( email ) {
 }
 
 /**
+ * Gets the WordPress.org username from a `@git.wordpress.org` email.
+ *
+ * Commit authors and co-authors that GitHub can't match to an account are
+ * collected by email, and these emails already name the WordPress.org account.
+ *
+ * @param {string} email The email.
+ *
+ * @return {string|undefined} The lowercased username, or undefined for any other email.
+ */
+function getWPOrgSlugFromEmail( email ) {
+	return email.match( /^(.+)@git\.wordpress\.org$/i )?.[ 1 ].toLowerCase();
+}
+
+/**
  * Checks if a user should be skipped.
  *
  * Bots, mannequins, and organizations are always skipped, since they can't
@@ -38393,18 +38493,22 @@ function isWellFormedEmail( email ) {
 function skipUser( actor ) {
 	const { __typename, login: username } = actor;
 	const skippedUsers = [
+		'claude',
 		'codecov',
 		'coderabbitai',
+		'Copilot',
 		'copilot-pull-request-reviewer',
 		'copilot-swe-agent',
+		'cursoragent',
 		'dependabot', // Here for backwards compatibility with old pull requests.
-		'dependabot[bot]',
 		'github-actions',
 		'github-advanced-security',
 	];
 
 	if (
 		'User' === __typename &&
+		// GitHub resolves commit authors and co-authors that are apps to a `User` with a `[bot]` login.
+		! username.endsWith( '[bot]' ) &&
 		-1 === skippedUsers.indexOf( username ) &&
 		! removedUsers.has( username.toLowerCase() ) &&
 		! contributorAlreadyPresent( username )
