@@ -254,4 +254,49 @@ describe( 'getContributorsList', () => {
 		] );
 		assert.deepEqual( contributorsList.unlinked, lookedUpUsers );
 	} );
+
+	it( 'credits unmatched authors with a WordPress.org email by that username, once', async () => {
+		globalThis.fetch = async () => ( {
+			json: async () => ( { reviewer: { slug: 'reviewer-slug' } } ),
+		} );
+		GitHub.prototype.getContributorData = async () => ( {
+			commits: {
+				nodes: [
+					commit(
+						{
+							user: null,
+							name: 'Co-Author',
+							email: 'co-author@git.wordpress.org',
+						},
+						{
+							user: null,
+							name: 'Co-Author Again',
+							email: 'Co-Author@git.wordpress.org',
+						},
+						{
+							user: null,
+							name: 'Reviewer',
+							email: 'reviewer-slug@git.wordpress.org',
+						}
+					),
+				],
+			},
+			reviews: { nodes: [ { author: actor( 'reviewer' ) } ] },
+			comments: { nodes: [] },
+			closingIssuesReferences: { nodes: [] },
+		} );
+
+		const { getContributorsList } = await importCollector();
+		const contributorsList = await getContributorsList();
+
+		assert.deepEqual( contributorsList.svn, [
+			'co-author',
+			'reviewer-slug',
+		] );
+		assert.deepEqual( contributorsList.coAuthored, [
+			'Co-authored-by: co-author <co-author@git.wordpress.org>',
+			'Co-authored-by: reviewer <reviewer-slug@git.wordpress.org>',
+		] );
+		assert.deepEqual( contributorsList.unlinked, [] );
+	} );
 } );

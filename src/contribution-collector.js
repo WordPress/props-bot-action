@@ -260,6 +260,12 @@ export async function getContributorsList() {
 	core.debug( 'WordPress.org raw data:' );
 	debugValue( wpOrgData );
 
+	const linkedSlugs = new Set(
+		Object.values( wpOrgData )
+			.filter( Boolean )
+			.map( ( { slug } ) => slug.toLowerCase() )
+	);
+
 	// Add each contributor's wp.org username to their user data.
 	Object.keys( userData ).forEach( ( contributor ) => {
 		if (
@@ -268,7 +274,23 @@ export async function getContributorsList() {
 		) {
 			userData[ contributor ].dotOrg = wpOrgData[ contributor ].slug;
 			contributorLists.svn.push( wpOrgData[ contributor ].slug );
+			return;
 		}
+
+		const slug = getWPOrgSlugFromEmail( contributor );
+		if ( ! slug ) {
+			return;
+		}
+
+		// Already credited through a GitHub account, or through another email.
+		if ( linkedSlugs.has( slug ) ) {
+			contributors.committers.delete( contributor );
+			return;
+		}
+
+		linkedSlugs.add( slug );
+		userData[ contributor ].dotOrg = slug;
+		contributorLists.svn.push( slug );
 	} );
 
 	contributorLists.coAuthored = [];
@@ -298,8 +320,11 @@ export async function getContributorsList() {
 					return null;
 				}
 
+				// Contributors without a GitHub account are keyed by email, so they go by their WordPress.org username.
+				const name = username.includes( '@' ) ? dotOrg : username;
+
 				return contributorLists.coAuthored.push(
-					`Co-authored-by: ${ username } <${ dotOrg }@git.wordpress.org>`
+					`Co-authored-by: ${ name } <${ dotOrg }@git.wordpress.org>`
 				);
 			} )
 			.filter( ( el ) => el );
@@ -344,6 +369,20 @@ function isWellFormedEmail( email ) {
 			email
 		)
 	);
+}
+
+/**
+ * Gets the WordPress.org username from a `@git.wordpress.org` email.
+ *
+ * Commit authors and co-authors that GitHub can't match to an account are
+ * collected by email, and these emails already name the WordPress.org account.
+ *
+ * @param {string} email The email.
+ *
+ * @return {string|undefined} The lowercased username, or undefined for any other email.
+ */
+function getWPOrgSlugFromEmail( email ) {
+	return email.match( /^(.+)@git\.wordpress\.org$/i )?.[ 1 ].toLowerCase();
 }
 
 /**
