@@ -2,20 +2,13 @@ name: Test the Action
 
 on:
     pull_request:
-    pull_request_review:
-        types:
-            - submitted
-    pull_request_review_comment:
-        types:
-            - created
-            - deleted
 
 jobs:
     # Tests that the Action works as expected.
     #
     # Performs the following steps:
     # - Checks out the repository.
-    # - Runs the Action.
+    # - Runs the Action without posting, since the Props Bot workflow posts the props comment.
     test:
         name: Run Props Bot
         runs-on: ubuntu-latest
@@ -28,3 +21,4 @@ jobs:
               uses: ./
               with:
                   format: 'all'
+                  post-comment: false
