@@ -23,6 +23,7 @@ For a full breakdown of the WordPress project's Props best practices, please con
 |----------------|---------|------------------------------------------------------------------------------------------------------------------------------------------|
 | `format`       | `git`   | The style of contributor lists to include. Accepted values are `svn`, `git`, or `all`, or any combination of those separated by commas. |
 | `post-comment` | `true`  | Whether to post the props in a comment. When `false`, the generated message is only returned through the `comment-body` output.        |
+| `fail-on-error` | `false` | Whether to fail the workflow run when the comment cannot be posted. Leave it off for workflows that run on `pull_request` and accept pull requests from forks, since their token is read-only there. |
 
 ## Outputs
 
