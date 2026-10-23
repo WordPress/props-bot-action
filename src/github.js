@@ -82,6 +82,10 @@ export default class GitHub {
 		this.postComment =
 			core.getInput( 'post-comment' ) === '' ||
 			core.getBooleanInput( 'post-comment' );
+
+		this.failOnError =
+			core.getInput( 'fail-on-error' ) !== '' &&
+			core.getBooleanInput( 'fail-on-error' );
 	}
 
 	/**
@@ -419,6 +423,9 @@ export default class GitHub {
 			try {
 				await this.octokit.rest.issues.createComment( comment );
 			} catch ( e ) {
+				if ( this.failOnError ) {
+					throw new Error( `Error creating comment: ${ e.message }` );
+				}
 				core.error( `Error creating comment: ${ e.message }` );
 			}
 		}
