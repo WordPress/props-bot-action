@@ -6,8 +6,8 @@ on:
     # However, the logic below will short-circuit the workflow when the `props-bot` label is not the one being added.
     #
     # Note: This differs from the example workflow because code is executed from within the repository, making
-    # pull_request_target unsafe. When HEAD branches belong to forked repositories, the props-bot label should be used
-    # to ensure the list of contributors is up to date.
+    # pull_request_target unsafe. Pull requests from forked repositories get a read-only token, so their list of
+    # contributors is posted by a comment, such as `@propsbot refresh`, which runs from trunk.
     pull_request:
         types:
             - opened
@@ -30,13 +30,6 @@ on:
         types:
             - created
 
-# Cancels all previous workflow runs for pull requests that have not completed.
-concurrency:
-    # The concurrency group contains the workflow name and the branch name for pull requests
-    # or the commit hash for any other events.
-    group: ${{ github.workflow }}-${{ contains( fromJSON( '["pull_request", "pull_request_review", "pull_request_review_comment"]' ), github.event_name ) && github.head_ref || github.sha }}
-    cancel-in-progress: true
-
 # Disable permissions for all available scopes by default.
 # Any needed permissions should be configured at the job level.
 permissions: {}
@@ -49,13 +42,19 @@ jobs:
     # - Collects a list of contributor props and leaves a comment.
     # - Removes the props-bot label, if necessary.
     props-bot:
-        name: Generate a list of props
+        # Note: This differs from the example workflow because `Run Props Bot` is a required status check.
+        name: Run Props Bot
         runs-on: ubuntu-latest
         permissions:
-            # The action needs permission `write` permission for PRs in order to add a comment.
+            # The action needs `write` permission for PRs in order to add a comment.
             pull-requests: write
+            # Note: This is not required in the example workflow, but the checkout step needs it.
             contents: read
         timeout-minutes: 20
+        # Cancels unfinished runs for the same PR. Set on the job, so runs that skip it never cancel one.
+        concurrency:
+            group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || github.sha }}
+            cancel-in-progress: true
         # The job will run when pull requests are open, ready for review and:
         #
         # - A comment is added to the pull request.
