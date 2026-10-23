@@ -38020,7 +38020,9 @@ class github_GitHub {
 				await this.octokit.rest.issues.createComment( comment );
 			} catch ( e ) {
 				if ( this.failOnError ) {
-					throw new Error( `Error creating comment: ${ e.message }` );
+					throw new Error( `Error creating comment: ${ e.message }`, {
+						cause: e,
+					} );
 				}
 				error( `Error creating comment: ${ e.message }` );
 			}

@@ -10,7 +10,7 @@ inputs:
         required: false
         default: 'true'
     fail-on-error:
-        description: 'Whether to fail the workflow run when the comment cannot be posted.'
+        description: 'Whether to fail the workflow run when the comment cannot be posted. Leave it off for workflows that run on `pull_request` and accept pull requests from forks, since their token is read-only there.'
         required: false
         default: 'false'
     token:
