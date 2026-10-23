@@ -5,6 +5,8 @@
 
 This GitHub Action Helps with collecting contributors associated with a pull request by commenting with a formatted list of contributors.
 
+Contributors are collected from the pull request's commits, including people credited in `Co-authored-by` trailers, its reviews and comments, and the issues it closes and their comments. Bots and coding agents are left out.
+
 For a full breakdown of the WordPress project's Props best practices, please consult the [Making WordPress Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).
 
 ## Configuration
@@ -61,6 +63,25 @@ permissions:
   pull-requests: read # Needed to read the PR's commits, reviews, and comments.
   issues: read        # Private repos only. Needed to read comments on issues linked to the PR.
 ```
+
+## Commands
+
+Anyone with write access to the repository can adjust the props by commenting on the pull request:
+
+| Command                        | Description                                                                         |
+|--------------------------------|---------------------------------------------------------------------------------------|
+| `@propsbot add <username>`     | Gives props to a GitHub user who would not have been picked up from the PR activity. |
+| `@propsbot remove <username>`  | Leaves a GitHub user out of the props, even if they interacted with the PR.          |
+
+A co-author who is only credited through a `Co-authored-by: <name> <username@git.wordpress.org>` trailer, without a matching GitHub account, is removed by their WordPress.org username.
+
+Anyone can comment `@propsbot refresh` to refresh the props list, as an alternative to adding the `props-bot` label.
+
+Each command must be on a line of its own, and a comment can contain several of them. Commands in code blocks are ignored. When there are several commands for the same user, the most recent one wins, so a removal can be undone with `@propsbot add <username>`.
+
+Comments that consist only of commands do not earn their author props.
+
+The commands are read from the comments on the pull request itself every time the action runs. To change an earlier command, post a new one. Edited or deleted commands take effect the next time the action runs.
 
 ## Example Workflow File
 
