@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import GitHub from '../src/github.js';
@@ -9,6 +12,7 @@ import GitHub from '../src/github.js';
  * @type {Object}
  */
 const originalMethods = {
+	commentProps: GitHub.prototype.commentProps,
 	getContributorData: GitHub.prototype.getContributorData,
 	hasWriteAccess: GitHub.prototype.hasWriteAccess,
 };
@@ -160,6 +164,10 @@ describe( 'getContributorsList', () => {
 				'Co-authored-by: reviewer <reviewer-slug@git.wordpress.org>',
 			],
 			unlinked: [ 'committer' ],
+			contributors: [
+				{ github: 'committer', email: null, wporg: null },
+				{ github: 'reviewer', email: null, wporg: 'reviewer-slug' },
+			],
 			hasGhostActivity: false,
 		} );
 	} );
@@ -330,5 +338,102 @@ describe( 'getContributorsList', () => {
 			'https://profiles.wordpress.org/co-author/',
 			'https://profiles.wordpress.org/missing/',
 		] );
+	} );
+} );
+
+/**
+ * Reads an action output written to `GITHUB_OUTPUT`.
+ *
+ * @param {string} name The output name.
+ *
+ * @return {string|undefined} The value, or undefined when the output was not set.
+ */
+function getOutput( name ) {
+	const match = fs
+		.readFileSync( process.env.GITHUB_OUTPUT, 'utf8' )
+		.match( new RegExp( `^${ name }<<(\\S+)\\n([\\s\\S]*?)\\n\\1$`, 'm' ) );
+
+	return match ? match[ 2 ] : undefined;
+}
+
+describe( 'run', () => {
+	let outputDir;
+
+	beforeEach( () => {
+		outputDir = fs.mkdtempSync( path.join( os.tmpdir(), 'props-bot-' ) );
+		process.env.GITHUB_OUTPUT = path.join( outputDir, 'output' );
+		fs.writeFileSync( process.env.GITHUB_OUTPUT, '' );
+
+		process.env.GITHUB_REPOSITORY = 'WordPress/props-bot-action';
+		process.env.INPUT_TOKEN = 'token';
+
+		GitHub.prototype.commentProps = async () => {};
+	} );
+
+	afterEach( () => {
+		Object.assign( GitHub.prototype, originalMethods );
+		globalThis.fetch = originalFetch;
+		fs.rmSync( outputDir, { recursive: true, force: true } );
+
+		delete process.env.GITHUB_OUTPUT;
+		delete process.env.GITHUB_REPOSITORY;
+		delete process.env.INPUT_TOKEN;
+	} );
+
+	it( 'outputs the contributors with their GitHub and WordPress.org accounts', async () => {
+		globalThis.fetch = async ( url, { method } ) => ( {
+			ok: 'HEAD' === method,
+			json: async () => ( { committer: { slug: 'committer-slug' } } ),
+		} );
+		GitHub.prototype.getContributorData = async () => ( {
+			commits: {
+				nodes: [
+					commit(
+						{ user: actor( 'committer' ) },
+						{
+							user: null,
+							name: 'Co-Author',
+							email: 'co-author@git.wordpress.org',
+						},
+						{
+							user: null,
+							name: 'Unlinked',
+							email: 'unlinked@example.com',
+						}
+					),
+				],
+			},
+			reviews: { nodes: [ { author: actor( 'reviewer' ) } ] },
+			comments: { nodes: [] },
+			closingIssuesReferences: { nodes: [] },
+		} );
+
+		const { run } = await importCollector();
+		await run();
+
+		assert.deepEqual( JSON.parse( getOutput( 'contributors' ) ), [
+			{ github: 'committer', email: null, wporg: 'committer-slug' },
+			{
+				github: null,
+				email: 'co-author@git.wordpress.org',
+				wporg: 'co-author',
+			},
+			{ github: null, email: 'unlinked@example.com', wporg: null },
+			{ github: 'reviewer', email: null, wporg: null },
+		] );
+	} );
+
+	it( 'outputs an empty list when there are no contributors', async () => {
+		GitHub.prototype.getContributorData = async () => ( {
+			commits: { nodes: [] },
+			reviews: { nodes: [] },
+			comments: { nodes: [] },
+			closingIssuesReferences: { nodes: [] },
+		} );
+
+		const { run } = await importCollector();
+		await run();
+
+		assert.equal( getOutput( 'contributors' ), '[]' );
 	} );
 } );

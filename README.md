@@ -31,6 +31,7 @@ For a full breakdown of the WordPress project's Props best practices, please con
 | Key            | Description                                                                                        |
 |----------------|------------------------------------------------------------------------------------------------------|
 | `comment-body` | The fully rendered props message in the `format` specified. Empty when no contributors were found. |
+| `contributors` | The contributors as a JSON array, in the order they are credited. Each entry has a `github` username, an `email` for commit authors without a GitHub account, and a `wporg` username, each `null` when unknown. An empty array when no contributors were found. |
 
 ## Permissions
 
