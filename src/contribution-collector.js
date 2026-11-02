@@ -2,6 +2,7 @@ import * as core from '@actions/core';
 import * as github from '@actions/github';
 import { getPropsOverrides, parseCommands } from './commands.js';
 import GitHub from './github.js';
+import { getTracReporter, getTracTickets } from './trac.js';
 import { getWPOrgData, wpOrgUserExists } from './utils.js';
 
 const { context } = github;
@@ -196,6 +197,14 @@ export async function getContributorsList() {
 		}
 	}
 
+	// Trac reporters go by their WordPress.org email, so they are credited like co-authors without a GitHub account.
+	for ( const ticket of getTracTickets( contributorData.body ) ) {
+		const reporter = await getTracReporter( ticket );
+		if ( reporter ) {
+			contributors.reporters.add( `${ reporter }@git.wordpress.org` );
+		}
+	}
+
 	core.debug( 'Reporters:' );
 	debugValue( contributors.reporters );
 
@@ -283,7 +292,9 @@ export async function getContributorsList() {
 
 		// Already credited through a GitHub account or another email, or removed through a Props Bot command.
 		if ( linkedSlugs.has( slug ) || removedUsers.has( slug ) ) {
-			contributors.committers.delete( contributor );
+			contributorTypes.forEach( ( type ) =>
+				contributors[ type ].delete( contributor )
+			);
 			continue;
 		}
 
@@ -378,8 +389,9 @@ function isWellFormedEmail( email ) {
 /**
  * Gets the WordPress.org username from a `@git.wordpress.org` email.
  *
- * Commit authors and co-authors that GitHub can't match to an account are
- * collected by email, and these emails already name the WordPress.org account.
+ * Commit authors and co-authors that GitHub can't match to an account, and
+ * Trac ticket reporters, are collected by email, and these emails already name
+ * the WordPress.org account.
  *
  * @param {string} email The email.
  *

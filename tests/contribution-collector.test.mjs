@@ -331,4 +331,64 @@ describe( 'getContributorsList', () => {
 			'https://profiles.wordpress.org/missing/',
 		] );
 	} );
+
+	it( 'credits reporters of Trac tickets linked in the description, once, unless already credited or removed', async () => {
+		const reporters = {
+			'https://meta.trac.wordpress.org/query?id=1&col=reporter&format=csv':
+				'Reporter',
+			'https://meta.trac.wordpress.org/query?id=2&col=reporter&format=csv':
+				'reporter',
+			'https://core.trac.wordpress.org/query?id=3&col=reporter&format=csv':
+				'reviewer-slug',
+			'https://core.trac.wordpress.org/query?id=4&col=reporter&format=csv':
+				'removed',
+		};
+		globalThis.fetch = async ( url, { method } = {} ) => {
+			if ( url in reporters ) {
+				return {
+					ok: true,
+					text: async () =>
+						`id,reporter\r\n1,${ reporters[ url ] }\r\n`,
+				};
+			}
+			if ( 'HEAD' === method ) {
+				return { ok: true };
+			}
+			return {
+				json: async () => ( { reviewer: { slug: 'reviewer-slug' } } ),
+			};
+		};
+		GitHub.prototype.getContributorData = async () => ( {
+			body:
+				'Fixes https://meta.trac.wordpress.org/ticket/1.\n' +
+				'See https://meta.trac.wordpress.org/ticket/2, ' +
+				'https://core.trac.wordpress.org/ticket/3, and ' +
+				'https://core.trac.wordpress.org/ticket/4.',
+			commits: { nodes: [] },
+			reviews: { nodes: [ { author: actor( 'reviewer' ) } ] },
+			comments: {
+				nodes: [
+					{
+						author: actor( 'maintainer' ),
+						body: '@propsbot remove removed',
+					},
+				],
+			},
+			closingIssuesReferences: { nodes: [] },
+		} );
+		GitHub.prototype.hasWriteAccess = async () => true;
+
+		const { getContributorsList } = await importCollector();
+		const contributorsList = await getContributorsList();
+
+		assert.deepEqual( contributorsList.svn, [
+			'reviewer-slug',
+			'reporter',
+		] );
+		assert.deepEqual( contributorsList.coAuthored, [
+			'Co-authored-by: reviewer <reviewer-slug@git.wordpress.org>',
+			'Co-authored-by: reporter <reporter@git.wordpress.org>',
+		] );
+		assert.deepEqual( contributorsList.unlinked, [] );
+	} );
 } );
