@@ -58,6 +58,11 @@ export async function run() {
 	// Get a list of contributors.
 	const contributorsList = await getContributorsList();
 
+	core.setOutput(
+		'contributors',
+		JSON.stringify( contributorsList?.contributors ?? [] )
+	);
+
 	// Comment on the pull request.
 	await gh.commentProps( {
 		context,
@@ -299,6 +304,7 @@ export async function getContributorsList() {
 
 	contributorLists.coAuthored = [];
 	contributorLists.unlinked = [];
+	contributorLists.contributors = [];
 
 	contributorTypes.forEach( ( priority ) => {
 		// Skip an empty set of contributors.
@@ -314,6 +320,13 @@ export async function getContributorsList() {
 				}
 
 				const { dotOrg } = userData[ username ];
+				const email = username.includes( '@' ) ? username : null;
+				contributorLists.contributors.push( {
+					github: email ? null : username,
+					email,
+					wporg: dotOrg ?? null,
+				} );
+
 				if (
 					! Object.prototype.hasOwnProperty.call(
 						userData[ username ],
