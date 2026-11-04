@@ -1,5 +1,5 @@
 import * as core from '@actions/core';
-import * as github from '@actions/github';
+import { userAgent } from './utils.js';
 
 /**
  * Matches links to WordPress.org Trac tickets, capturing the Trac instance and
@@ -49,13 +49,7 @@ export async function getTracReporter( { instance, id } ) {
 		const response = await fetch(
 			`https://${ instance }.trac.wordpress.org/query?id=${ id }&col=reporter&format=csv`,
 			{
-				headers: {
-					'User-Agent':
-						'Props Bot: ' +
-						github.context.repo.owner +
-						'/' +
-						github.context.repo.repo,
-				},
+				headers: { 'User-Agent': userAgent() },
 				// Unknown Trac instances redirect to Core Trac, whose ticket with the same number is a different one.
 				redirect: 'manual',
 			}
@@ -74,8 +68,16 @@ export async function getTracReporter( { instance, id } ) {
 		const reporter =
 			row.split( ',' )[ header.split( ',' ).indexOf( 'reporter' ) ];
 
-		// Tickets from before Trac required logging in can have an anonymous reporter.
-		if ( ! reporter || 'anonymous' === reporter ) {
+		/*
+		 * Tickets from before Trac required logging in can have an anonymous
+		 * reporter, or free-form text that no login could have, such as a
+		 * name with a comma, which the CSV quotes.
+		 */
+		if (
+			! reporter ||
+			'anonymous' === reporter ||
+			! /^[a-z0-9 _.@-]+$/i.test( reporter )
+		) {
 			return null;
 		}
 

@@ -332,7 +332,7 @@ describe( 'getContributorsList', () => {
 		] );
 	} );
 
-	it( 'credits reporters of Trac tickets linked in the description, once, unless already credited or removed', async () => {
+	it( 'credits reporters of Trac tickets linked in the description, once, unless already credited, removed, or missing', async () => {
 		const reporters = {
 			'https://meta.trac.wordpress.org/query?id=1&col=reporter&format=csv':
 				'Reporter',
@@ -342,6 +342,10 @@ describe( 'getContributorsList', () => {
 				'reviewer-slug',
 			'https://core.trac.wordpress.org/query?id=4&col=reporter&format=csv':
 				'removed',
+			'https://core.trac.wordpress.org/query?id=5&col=reporter&format=csv':
+				'co-author',
+			'https://core.trac.wordpress.org/query?id=6&col=reporter&format=csv':
+				'missing',
 		};
 		globalThis.fetch = async ( url, { method } = {} ) => {
 			if ( url in reporters ) {
@@ -352,7 +356,7 @@ describe( 'getContributorsList', () => {
 				};
 			}
 			if ( 'HEAD' === method ) {
-				return { ok: true };
+				return { ok: ! url.includes( '/missing/' ) };
 			}
 			return {
 				json: async () => ( { reviewer: { slug: 'reviewer-slug' } } ),
@@ -362,9 +366,19 @@ describe( 'getContributorsList', () => {
 			body:
 				'Fixes https://meta.trac.wordpress.org/ticket/1.\n' +
 				'See https://meta.trac.wordpress.org/ticket/2, ' +
-				'https://core.trac.wordpress.org/ticket/3, and ' +
-				'https://core.trac.wordpress.org/ticket/4.',
-			commits: { nodes: [] },
+				'https://core.trac.wordpress.org/ticket/3, ' +
+				'https://core.trac.wordpress.org/ticket/4, ' +
+				'https://core.trac.wordpress.org/ticket/5, and ' +
+				'https://core.trac.wordpress.org/ticket/6.',
+			commits: {
+				nodes: [
+					commit( {
+						user: null,
+						name: 'Co-Author',
+						email: 'co-author@git.wordpress.org',
+					} ),
+				],
+			},
 			reviews: { nodes: [ { author: actor( 'reviewer' ) } ] },
 			comments: {
 				nodes: [
@@ -383,12 +397,44 @@ describe( 'getContributorsList', () => {
 
 		assert.deepEqual( contributorsList.svn, [
 			'reviewer-slug',
+			'co-author',
 			'reporter',
 		] );
 		assert.deepEqual( contributorsList.coAuthored, [
+			'Co-authored-by: co-author <co-author@git.wordpress.org>',
 			'Co-authored-by: reviewer <reviewer-slug@git.wordpress.org>',
 			'Co-authored-by: reporter <reporter@git.wordpress.org>',
 		] );
 		assert.deepEqual( contributorsList.unlinked, [] );
+	} );
+
+	it( 'looks up the reporters of at most 10 linked Trac tickets', async () => {
+		const tracRequests = [];
+		globalThis.fetch = async ( url, { method } = {} ) => {
+			if ( url.includes( '.trac.wordpress.org/' ) ) {
+				tracRequests.push( url );
+				return { ok: true, text: async () => 'id,reporter\r\n' };
+			}
+			if ( 'HEAD' === method ) {
+				return { ok: true };
+			}
+			return { json: async () => ( {} ) };
+		};
+		GitHub.prototype.getContributorData = async () => ( {
+			body: Array.from(
+				{ length: 11 },
+				( _, i ) => `https://core.trac.wordpress.org/ticket/${ i + 1 }`
+			).join( '\n' ),
+			commits: { nodes: [ commit( { user: actor( 'committer' ) } ) ] },
+			reviews: { nodes: [] },
+			comments: { nodes: [] },
+			closingIssuesReferences: { nodes: [] },
+		} );
+
+		const { getContributorsList } = await importCollector();
+		await getContributorsList();
+
+		assert.equal( tracRequests.length, 10 );
+		assert.ok( ! tracRequests.some( ( url ) => url.includes( 'id=11&' ) ) );
 	} );
 } );

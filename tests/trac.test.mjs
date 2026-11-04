@@ -104,15 +104,17 @@ describe( 'getTracReporter', () => {
 		}
 	} );
 
-	it( 'returns null for anonymous reporters and missing tickets', async () => {
-		respondWith( {
-			ok: true,
-			text: async () => 'id,reporter\r\n1,anonymous\r\n',
-		} );
-		assert.equal(
-			await getTracReporter( { instance: 'core', id: 1 } ),
-			null
-		);
+	it( 'returns null for anonymous or free-form reporters and missing tickets', async () => {
+		for ( const reporter of [ 'anonymous', '"Smith, John"' ] ) {
+			respondWith( {
+				ok: true,
+				text: async () => `id,reporter\r\n1,${ reporter }\r\n`,
+			} );
+			assert.equal(
+				await getTracReporter( { instance: 'core', id: 1 } ),
+				null
+			);
+		}
 
 		respondWith( { ok: true, text: async () => 'id,reporter\r\n' } );
 		assert.equal(

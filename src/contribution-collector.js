@@ -29,6 +29,13 @@ const contributorTypes = [
 ];
 
 /**
+ * The most linked Trac tickets whose reporters are credited.
+ *
+ * @type {number}
+ */
+const maxTracTickets = 10;
+
+/**
  * Lowercased usernames removed from the props through Props Bot commands.
  *
  * @type {Set<string>}
@@ -197,11 +204,22 @@ export async function getContributorsList() {
 		}
 	}
 
+	// The description is up to the PR author, so it can't send Trac an unbounded number of requests.
+	const tracTickets = getTracTickets( contributorData.body );
+	if ( tracTickets.length > maxTracTickets ) {
+		core.warning(
+			`Only the reporters of the first ${ maxTracTickets } of the ${ tracTickets.length } linked Trac tickets are credited.`
+		);
+	}
+	const tracReporters = await Promise.all(
+		tracTickets.slice( 0, maxTracTickets ).map( getTracReporter )
+	);
+
 	// Trac reporters go by their WordPress.org email, so they are credited like co-authors without a GitHub account.
-	for ( const ticket of getTracTickets( contributorData.body ) ) {
-		const reporter = await getTracReporter( ticket );
-		if ( reporter ) {
-			contributors.reporters.add( `${ reporter }@git.wordpress.org` );
+	for ( const reporter of tracReporters ) {
+		const email = `${ reporter }@git.wordpress.org`;
+		if ( reporter && ! contributorAlreadyPresent( email ) ) {
+			contributors.reporters.add( email );
 		}
 	}
 
@@ -300,6 +318,12 @@ export async function getContributorsList() {
 
 		// Unknown accounts stay unlinked, so a typo doesn't make it into the props.
 		if ( ! ( await wpOrgUserExists( slug ) ) ) {
+			// Only Trac reporters are reporters by email, and they have no GitHub account to link.
+			if ( contributors.reporters.delete( contributor ) ) {
+				core.warning(
+					`Leaving out the Trac reporter ${ slug }, whose WordPress.org account could not be found.`
+				);
+			}
 			continue;
 		}
 

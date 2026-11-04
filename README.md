@@ -5,7 +5,7 @@
 
 This GitHub Action Helps with collecting contributors associated with a pull request by commenting with a formatted list of contributors.
 
-Contributors are collected from the pull request's commits, including people credited in `Co-authored-by` trailers, its reviews and comments, the issues it closes and their comments, and the reporters of the WordPress.org Trac tickets linked in its description. Bots and coding agents are left out.
+Contributors are collected from the pull request's commits, including people credited in `Co-authored-by` trailers, its reviews and comments, the issues it closes and their comments, and the reporters of up to 10 WordPress.org Trac tickets linked in its description. Bots and coding agents are left out.
 
 For a full breakdown of the WordPress project's Props best practices, please consult the [Making WordPress Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).
 

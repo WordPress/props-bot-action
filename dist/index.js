@@ -38078,6 +38078,74 @@ class github_GitHub {
 	}
 }
 
+;// CONCATENATED MODULE: ./src/utils.js
+
+
+
+/**
+ * Gets the User-Agent that identifies this action to WordPress.org.
+ *
+ * @return {string} The User-Agent, naming the repository the action runs in.
+ */
+function utils_userAgent() {
+	return `Props Bot: ${ github_context.repo.owner }/${ github_context.repo.repo }`;
+}
+
+/**
+ * Get WordPress.org user data for a list of GitHub usernames.
+ *
+ * @param {Array} githubUsers
+ * @return {Promise<Array>} The WordPress.org user data.
+ */
+async function getWPOrgData( githubUsers ) {
+	// Collect WordPress.org usernames
+	const dotorgGHApi =
+		'https://profiles.wordpress.org/wp-json/wporg-github/v1/lookup/';
+
+	return fetch( dotorgGHApi, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			'User-Agent': utils_userAgent(),
+		},
+		body: JSON.stringify( { github_user: githubUsers } ),
+	} ).then( ( response ) => response.json() );
+}
+
+/**
+ * Checks whether a WordPress.org account exists.
+ *
+ * @param {string} slug The WordPress.org username.
+ *
+ * @return {Promise<boolean>} true if the account exists, false if it doesn't or the check fails.
+ */
+async function wpOrgUserExists( slug ) {
+	try {
+		const response = await fetch(
+			`https://profiles.wordpress.org/${ encodeURIComponent( slug ) }/`,
+			{
+				method: 'HEAD',
+				headers: {
+					'User-Agent': utils_userAgent(),
+				},
+			}
+		);
+
+		if ( ! response.ok && 404 !== response.status ) {
+			warning(
+				`Could not check the WordPress.org account ${ slug }: HTTP ${ response.status }`
+			);
+		}
+
+		return response.ok;
+	} catch ( e ) {
+		warning(
+			`Could not check the WordPress.org account ${ slug }: ${ e.message }`
+		);
+		return false;
+	}
+}
+
 ;// CONCATENATED MODULE: ./src/trac.js
 
 
@@ -38130,13 +38198,7 @@ async function getTracReporter( { instance, id } ) {
 		const response = await fetch(
 			`https://${ instance }.trac.wordpress.org/query?id=${ id }&col=reporter&format=csv`,
 			{
-				headers: {
-					'User-Agent':
-						'Props Bot: ' +
-						github_context.repo.owner +
-						'/' +
-						github_context.repo.repo,
-				},
+				headers: { 'User-Agent': utils_userAgent() },
 				// Unknown Trac instances redirect to Core Trac, whose ticket with the same number is a different one.
 				redirect: 'manual',
 			}
@@ -38155,8 +38217,16 @@ async function getTracReporter( { instance, id } ) {
 		const reporter =
 			row.split( ',' )[ header.split( ',' ).indexOf( 'reporter' ) ];
 
-		// Tickets from before Trac required logging in can have an anonymous reporter.
-		if ( ! reporter || 'anonymous' === reporter ) {
+		/*
+		 * Tickets from before Trac required logging in can have an anonymous
+		 * reporter, or free-form text that no login could have, such as a
+		 * name with a comma, which the CSV quotes.
+		 */
+		if (
+			! reporter ||
+			'anonymous' === reporter ||
+			! /^[a-z0-9 _.@-]+$/i.test( reporter )
+		) {
 			return null;
 		}
 
@@ -38174,73 +38244,6 @@ async function getTracReporter( { instance, id } ) {
 			`Could not get the reporter of ${ ticketUrl }: ${ e.message }`
 		);
 		return null;
-	}
-}
-
-;// CONCATENATED MODULE: ./src/utils.js
-
-
-
-/**
- * Get WordPress.org user data for a list of GitHub usernames.
- *
- * @param {Array} githubUsers
- * @return {Promise<Array>} The WordPress.org user data.
- */
-async function getWPOrgData( githubUsers ) {
-	// Collect WordPress.org usernames
-	const dotorgGHApi =
-		'https://profiles.wordpress.org/wp-json/wporg-github/v1/lookup/';
-
-	return fetch( dotorgGHApi, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			'User-Agent':
-				'Props Bot: ' +
-				github_context.repo.owner +
-				'/' +
-				github_context.repo.repo,
-		},
-		body: JSON.stringify( { github_user: githubUsers } ),
-	} ).then( ( response ) => response.json() );
-}
-
-/**
- * Checks whether a WordPress.org account exists.
- *
- * @param {string} slug The WordPress.org username.
- *
- * @return {Promise<boolean>} true if the account exists, false if it doesn't or the check fails.
- */
-async function wpOrgUserExists( slug ) {
-	try {
-		const response = await fetch(
-			`https://profiles.wordpress.org/${ encodeURIComponent( slug ) }/`,
-			{
-				method: 'HEAD',
-				headers: {
-					'User-Agent':
-						'Props Bot: ' +
-						github_context.repo.owner +
-						'/' +
-						github_context.repo.repo,
-				},
-			}
-		);
-
-		if ( ! response.ok && 404 !== response.status ) {
-			warning(
-				`Could not check the WordPress.org account ${ slug }: HTTP ${ response.status }`
-			);
-		}
-
-		return response.ok;
-	} catch ( e ) {
-		warning(
-			`Could not check the WordPress.org account ${ slug }: ${ e.message }`
-		);
-		return false;
 	}
 }
 
@@ -38274,6 +38277,13 @@ const contributorTypes = [
 	'added',
 	'unlinked',
 ];
+
+/**
+ * The most linked Trac tickets whose reporters are credited.
+ *
+ * @type {number}
+ */
+const maxTracTickets = 10;
 
 /**
  * Lowercased usernames removed from the props through Props Bot commands.
@@ -38444,11 +38454,22 @@ async function getContributorsList() {
 		}
 	}
 
+	// The description is up to the PR author, so it can't send Trac an unbounded number of requests.
+	const tracTickets = getTracTickets( contributorData.body );
+	if ( tracTickets.length > maxTracTickets ) {
+		warning(
+			`Only the reporters of the first ${ maxTracTickets } of the ${ tracTickets.length } linked Trac tickets are credited.`
+		);
+	}
+	const tracReporters = await Promise.all(
+		tracTickets.slice( 0, maxTracTickets ).map( getTracReporter )
+	);
+
 	// Trac reporters go by their WordPress.org email, so they are credited like co-authors without a GitHub account.
-	for ( const ticket of getTracTickets( contributorData.body ) ) {
-		const reporter = await getTracReporter( ticket );
-		if ( reporter ) {
-			contributors.reporters.add( `${ reporter }@git.wordpress.org` );
+	for ( const reporter of tracReporters ) {
+		const email = `${ reporter }@git.wordpress.org`;
+		if ( reporter && ! contributorAlreadyPresent( email ) ) {
+			contributors.reporters.add( email );
 		}
 	}
 
@@ -38547,6 +38568,12 @@ async function getContributorsList() {
 
 		// Unknown accounts stay unlinked, so a typo doesn't make it into the props.
 		if ( ! ( await wpOrgUserExists( slug ) ) ) {
+			// Only Trac reporters are reporters by email, and they have no GitHub account to link.
+			if ( contributors.reporters.delete( contributor ) ) {
+				warning(
+					`Leaving out the Trac reporter ${ slug }, whose WordPress.org account could not be found.`
+				);
+			}
 			continue;
 		}
 
