@@ -37732,6 +37732,7 @@ class github_GitHub {
 	 * - Comments with author logins, account types, and bodies.
 	 * - Linked issues with author logins and account types.
 	 * - Comments on linked issues with author logins and account types.
+	 * - The description, for the Trac tickets it links.
 	 *
 	 * Everything fits in a single request for most pull requests. Any list
 	 * with more than one page is completed with follow-up requests, keeping
@@ -37758,6 +37759,7 @@ class github_GitHub {
 				repository(owner:$owner, name:$name) {
 					pullRequest(number:$prNumber) {
 						id
+						body
 						${ connections }
 					}
 				}
@@ -38081,6 +38083,15 @@ class github_GitHub {
 
 
 /**
+ * Gets the User-Agent that identifies this action to WordPress.org.
+ *
+ * @return {string} The User-Agent, naming the repository the action runs in.
+ */
+function utils_userAgent() {
+	return `Props Bot: ${ github_context.repo.owner }/${ github_context.repo.repo }`;
+}
+
+/**
  * Get WordPress.org user data for a list of GitHub usernames.
  *
  * @param {Array} githubUsers
@@ -38095,11 +38106,7 @@ async function getWPOrgData( githubUsers ) {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
-			'User-Agent':
-				'Props Bot: ' +
-				github_context.repo.owner +
-				'/' +
-				github_context.repo.repo,
+			'User-Agent': utils_userAgent(),
 		},
 		body: JSON.stringify( { github_user: githubUsers } ),
 	} ).then( ( response ) => response.json() );
@@ -38119,11 +38126,7 @@ async function wpOrgUserExists( slug ) {
 			{
 				method: 'HEAD',
 				headers: {
-					'User-Agent':
-						'Props Bot: ' +
-						github_context.repo.owner +
-						'/' +
-						github_context.repo.repo,
+					'User-Agent': utils_userAgent(),
 				},
 			}
 		);
@@ -38143,7 +38146,109 @@ async function wpOrgUserExists( slug ) {
 	}
 }
 
+;// CONCATENATED MODULE: ./src/trac.js
+
+
+
+/**
+ * Matches links to WordPress.org Trac tickets, capturing the Trac instance and
+ * the ticket number.
+ *
+ * @type {RegExp}
+ */
+const ticketLinkPattern =
+	/https?:\/\/([a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?)\.trac\.wordpress\.org\/ticket\/(\d+)/gi;
+
+/**
+ * Gets the Trac tickets linked in a text, such as a pull request description.
+ *
+ * @param {string|null|undefined} text The text.
+ *
+ * @return {Array<{instance: string, id: number}>} The tickets, once each, in the order they are first linked.
+ */
+function getTracTickets( text ) {
+	const tickets = new Map();
+
+	for ( const [ , instance, id ] of ( text ?? '' ).matchAll(
+		ticketLinkPattern
+	) ) {
+		const ticket = { instance: instance.toLowerCase(), id: Number( id ) };
+		tickets.set( `${ ticket.instance }#${ ticket.id }`, ticket );
+	}
+
+	return [ ...tickets.values() ];
+}
+
+/**
+ * Gets the WordPress.org username of the reporter of a Trac ticket.
+ *
+ * Trac shows the reporter's login, which the username is derived from the
+ * same way WordPress derives the profile slug from a login.
+ *
+ * @param {Object} ticket          The ticket.
+ * @param {string} ticket.instance The Trac instance, such as `core` or `meta`.
+ * @param {number} ticket.id       The ticket number.
+ *
+ * @return {Promise<string|null>} The lowercased username, or null when there is none or the lookup fails.
+ */
+async function getTracReporter( { instance, id } ) {
+	const ticketUrl = `https://${ instance }.trac.wordpress.org/ticket/${ id }`;
+
+	try {
+		const response = await fetch(
+			`https://${ instance }.trac.wordpress.org/query?id=${ id }&col=reporter&format=csv`,
+			{
+				headers: { 'User-Agent': utils_userAgent() },
+				// Unknown Trac instances redirect to Core Trac, whose ticket with the same number is a different one.
+				redirect: 'manual',
+			}
+		);
+
+		if ( ! response.ok ) {
+			warning(
+				`Could not get the reporter of ${ ticketUrl }: HTTP ${ response.status }`
+			);
+			return null;
+		}
+
+		const [ header = '', row = '' ] = ( await response.text() )
+			.trimStart()
+			.split( /\r?\n/ );
+		const reporter =
+			row.split( ',' )[ header.split( ',' ).indexOf( 'reporter' ) ];
+
+		/*
+		 * Tickets from before Trac required logging in can have an anonymous
+		 * reporter, or free-form text that no login could have, such as a
+		 * name with a comma, which the CSV quotes.
+		 */
+		if (
+			! reporter ||
+			'anonymous' === reporter ||
+			! /^[a-z0-9 _.@-]+$/i.test( reporter )
+		) {
+			return null;
+		}
+
+		// Mirrors `sanitize_title( mb_substr( $user_login, 0, 50 ) )` in `wp_insert_user()`.
+		return reporter
+			.slice( 0, 50 )
+			.toLowerCase()
+			.replaceAll( '.', '-' )
+			.replace( /[^a-z0-9 _-]/g, '' )
+			.replace( /\s+/g, '-' )
+			.replace( /-+/g, '-' )
+			.replace( /^-|-$/g, '' );
+	} catch ( e ) {
+		warning(
+			`Could not get the reporter of ${ ticketUrl }: ${ e.message }`
+		);
+		return null;
+	}
+}
+
 ;// CONCATENATED MODULE: ./src/contribution-collector.js
+
 
 
 
@@ -38172,6 +38277,13 @@ const contributorTypes = [
 	'added',
 	'unlinked',
 ];
+
+/**
+ * The most linked Trac tickets whose reporters are credited.
+ *
+ * @type {number}
+ */
+const maxTracTickets = 10;
 
 /**
  * Lowercased usernames removed from the props through Props Bot commands.
@@ -38342,6 +38454,25 @@ async function getContributorsList() {
 		}
 	}
 
+	// The description is up to the PR author, so it can't send Trac an unbounded number of requests.
+	const tracTickets = getTracTickets( contributorData.body );
+	if ( tracTickets.length > maxTracTickets ) {
+		warning(
+			`Only the reporters of the first ${ maxTracTickets } of the ${ tracTickets.length } linked Trac tickets are credited.`
+		);
+	}
+	const tracReporters = await Promise.all(
+		tracTickets.slice( 0, maxTracTickets ).map( getTracReporter )
+	);
+
+	// Trac reporters go by their WordPress.org email, so they are credited like co-authors without a GitHub account.
+	for ( const reporter of tracReporters ) {
+		const email = `${ reporter }@git.wordpress.org`;
+		if ( reporter && ! contributorAlreadyPresent( email ) ) {
+			contributors.reporters.add( email );
+		}
+	}
+
 	core_debug( 'Reporters:' );
 	debugValue( contributors.reporters );
 
@@ -38429,12 +38560,20 @@ async function getContributorsList() {
 
 		// Already credited through a GitHub account or another email, or removed through a Props Bot command.
 		if ( linkedSlugs.has( slug ) || removedUsers.has( slug ) ) {
-			contributors.committers.delete( contributor );
+			contributorTypes.forEach( ( type ) =>
+				contributors[ type ].delete( contributor )
+			);
 			continue;
 		}
 
 		// Unknown accounts stay unlinked, so a typo doesn't make it into the props.
 		if ( ! ( await wpOrgUserExists( slug ) ) ) {
+			// Only Trac reporters are reporters by email, and they have no GitHub account to link.
+			if ( contributors.reporters.delete( contributor ) ) {
+				warning(
+					`Leaving out the Trac reporter ${ slug }, whose WordPress.org account could not be found.`
+				);
+			}
 			continue;
 		}
 
@@ -38524,8 +38663,9 @@ function isWellFormedEmail( email ) {
 /**
  * Gets the WordPress.org username from a `@git.wordpress.org` email.
  *
- * Commit authors and co-authors that GitHub can't match to an account are
- * collected by email, and these emails already name the WordPress.org account.
+ * Commit authors and co-authors that GitHub can't match to an account, and
+ * Trac ticket reporters, are collected by email, and these emails already name
+ * the WordPress.org account.
  *
  * @param {string} email The email.
  *

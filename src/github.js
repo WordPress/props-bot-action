@@ -136,6 +136,7 @@ export default class GitHub {
 	 * - Comments with author logins, account types, and bodies.
 	 * - Linked issues with author logins and account types.
 	 * - Comments on linked issues with author logins and account types.
+	 * - The description, for the Trac tickets it links.
 	 *
 	 * Everything fits in a single request for most pull requests. Any list
 	 * with more than one page is completed with follow-up requests, keeping
@@ -162,6 +163,7 @@ export default class GitHub {
 				repository(owner:$owner, name:$name) {
 					pullRequest(number:$prNumber) {
 						id
+						body
 						${ connections }
 					}
 				}

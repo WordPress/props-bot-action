@@ -5,7 +5,7 @@
 
 This GitHub Action Helps with collecting contributors associated with a pull request by commenting with a formatted list of contributors.
 
-Contributors are collected from the pull request's commits, including people credited in `Co-authored-by` trailers, its reviews and comments, and the issues it closes and their comments. Bots and coding agents are left out.
+Contributors are collected from the pull request's commits, including people credited in `Co-authored-by` trailers, its reviews and comments, the issues it closes and their comments, and the reporters of up to 10 WordPress.org Trac tickets linked in its description. Bots and coding agents are left out.
 
 For a full breakdown of the WordPress project's Props best practices, please consult the [Making WordPress Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).
 
@@ -74,7 +74,7 @@ Anyone with write access to the repository can adjust the props by commenting on
 | `@propsbot add <username>`     | Gives props to a GitHub user who would not have been picked up from the PR activity. |
 | `@propsbot remove <username>`  | Leaves a GitHub user out of the props, even if they interacted with the PR.          |
 
-A co-author who is only credited through a `Co-authored-by: <name> <username@git.wordpress.org>` trailer, without a matching GitHub account, is removed by their WordPress.org username.
+A co-author who is only credited through a `Co-authored-by: <name> <username@git.wordpress.org>` trailer, without a matching GitHub account, is removed by their WordPress.org username. So is the reporter of a linked Trac ticket.
 
 Anyone can comment `@propsbot refresh` to refresh the props list, as an alternative to adding the `props-bot` label.
 

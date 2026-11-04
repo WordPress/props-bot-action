@@ -2,6 +2,7 @@ import * as core from '@actions/core';
 import * as github from '@actions/github';
 import { getPropsOverrides, parseCommands } from './commands.js';
 import GitHub from './github.js';
+import { getTracReporter, getTracTickets } from './trac.js';
 import { getWPOrgData, wpOrgUserExists } from './utils.js';
 
 const { context } = github;
@@ -26,6 +27,13 @@ const contributorTypes = [
 	'added',
 	'unlinked',
 ];
+
+/**
+ * The most linked Trac tickets whose reporters are credited.
+ *
+ * @type {number}
+ */
+const maxTracTickets = 10;
 
 /**
  * Lowercased usernames removed from the props through Props Bot commands.
@@ -196,6 +204,25 @@ export async function getContributorsList() {
 		}
 	}
 
+	// The description is up to the PR author, so it can't send Trac an unbounded number of requests.
+	const tracTickets = getTracTickets( contributorData.body );
+	if ( tracTickets.length > maxTracTickets ) {
+		core.warning(
+			`Only the reporters of the first ${ maxTracTickets } of the ${ tracTickets.length } linked Trac tickets are credited.`
+		);
+	}
+	const tracReporters = await Promise.all(
+		tracTickets.slice( 0, maxTracTickets ).map( getTracReporter )
+	);
+
+	// Trac reporters go by their WordPress.org email, so they are credited like co-authors without a GitHub account.
+	for ( const reporter of tracReporters ) {
+		const email = `${ reporter }@git.wordpress.org`;
+		if ( reporter && ! contributorAlreadyPresent( email ) ) {
+			contributors.reporters.add( email );
+		}
+	}
+
 	core.debug( 'Reporters:' );
 	debugValue( contributors.reporters );
 
@@ -283,12 +310,20 @@ export async function getContributorsList() {
 
 		// Already credited through a GitHub account or another email, or removed through a Props Bot command.
 		if ( linkedSlugs.has( slug ) || removedUsers.has( slug ) ) {
-			contributors.committers.delete( contributor );
+			contributorTypes.forEach( ( type ) =>
+				contributors[ type ].delete( contributor )
+			);
 			continue;
 		}
 
 		// Unknown accounts stay unlinked, so a typo doesn't make it into the props.
 		if ( ! ( await wpOrgUserExists( slug ) ) ) {
+			// Only Trac reporters are reporters by email, and they have no GitHub account to link.
+			if ( contributors.reporters.delete( contributor ) ) {
+				core.warning(
+					`Leaving out the Trac reporter ${ slug }, whose WordPress.org account could not be found.`
+				);
+			}
 			continue;
 		}
 
@@ -378,8 +413,9 @@ function isWellFormedEmail( email ) {
 /**
  * Gets the WordPress.org username from a `@git.wordpress.org` email.
  *
- * Commit authors and co-authors that GitHub can't match to an account are
- * collected by email, and these emails already name the WordPress.org account.
+ * Commit authors and co-authors that GitHub can't match to an account, and
+ * Trac ticket reporters, are collected by email, and these emails already name
+ * the WordPress.org account.
  *
  * @param {string} email The email.
  *

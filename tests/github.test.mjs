@@ -498,6 +498,31 @@ describe( 'getContributorData', () => {
 		assert.deepEqual( requests, [ 'pull request' ] );
 	} );
 
+	it( 'requests the description, which Trac tickets are read from', async () => {
+		let pullRequestQuery;
+		const gh = new GitHub();
+		gh.octokit = {
+			graphql: async ( query ) => {
+				pullRequestQuery = query;
+				return { repository: { pullRequest: buildPullRequest() } };
+			},
+		};
+
+		await gh.getContributorData( options );
+
+		// Comments select a `body` too, so only the pull request's own fields count.
+		let fields = pullRequestQuery.slice(
+			pullRequestQuery.indexOf(
+				'{',
+				pullRequestQuery.indexOf( 'pullRequest(' )
+			) + 1
+		);
+		while ( /\{[^{}]*\}/.test( fields ) ) {
+			fields = fields.replace( /\{[^{}]*\}/g, '' );
+		}
+		assert.ok( fields.split( /\s+/ ).includes( 'body' ) );
+	} );
+
 	it( 'fetches the remaining pages of each pull request list in order', async () => {
 		const { gh, requests } = createGitHubWithPages(
 			buildPullRequest( {

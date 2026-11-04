@@ -2,6 +2,15 @@ import * as core from '@actions/core';
 import * as github from '@actions/github';
 
 /**
+ * Gets the User-Agent that identifies this action to WordPress.org.
+ *
+ * @return {string} The User-Agent, naming the repository the action runs in.
+ */
+export function userAgent() {
+	return `Props Bot: ${ github.context.repo.owner }/${ github.context.repo.repo }`;
+}
+
+/**
  * Get WordPress.org user data for a list of GitHub usernames.
  *
  * @param {Array} githubUsers
@@ -16,11 +25,7 @@ export async function getWPOrgData( githubUsers ) {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
-			'User-Agent':
-				'Props Bot: ' +
-				github.context.repo.owner +
-				'/' +
-				github.context.repo.repo,
+			'User-Agent': userAgent(),
 		},
 		body: JSON.stringify( { github_user: githubUsers } ),
 	} ).then( ( response ) => response.json() );
@@ -40,11 +45,7 @@ export async function wpOrgUserExists( slug ) {
 			{
 				method: 'HEAD',
 				headers: {
-					'User-Agent':
-						'Props Bot: ' +
-						github.context.repo.owner +
-						'/' +
-						github.context.repo.repo,
+					'User-Agent': userAgent(),
 				},
 			}
 		);
