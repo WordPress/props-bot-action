@@ -411,7 +411,7 @@ describe( 'getContributorsList', () => {
 	it( 'looks up the reporters of at most 10 linked Trac tickets', async () => {
 		const tracRequests = [];
 		globalThis.fetch = async ( url, { method } = {} ) => {
-			if ( url.includes( '.trac.wordpress.org/' ) ) {
+			if ( new URL( url ).hostname.endsWith( '.trac.wordpress.org' ) ) {
 				tracRequests.push( url );
 				return { ok: true, text: async () => 'id,reporter\r\n' };
 			}
