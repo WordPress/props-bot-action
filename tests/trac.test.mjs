@@ -85,15 +85,23 @@ describe( 'getTracReporter', () => {
 	} );
 
 	it( 'derives the username from a login the way WordPress derives profile slugs', async () => {
-		respondWith( {
-			ok: true,
-			text: async () => 'id,reporter\r\n1,John Doe.Jr\r\n',
-		} );
+		const slugs = {
+			'John Doe.Jr': 'john-doe-jr',
+			'-john--doe@example-': 'john-doeexample',
+			[ 'a'.repeat( 49 ) + '-b' ]: 'a'.repeat( 49 ),
+		};
 
-		assert.equal(
-			await getTracReporter( { instance: 'core', id: 1 } ),
-			'john-doejr'
-		);
+		for ( const [ login, slug ] of Object.entries( slugs ) ) {
+			respondWith( {
+				ok: true,
+				text: async () => `id,reporter\r\n1,${ login }\r\n`,
+			} );
+
+			assert.equal(
+				await getTracReporter( { instance: 'core', id: 1 } ),
+				slug
+			);
+		}
 	} );
 
 	it( 'returns null for anonymous reporters and missing tickets', async () => {

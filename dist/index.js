@@ -38160,10 +38160,15 @@ async function getTracReporter( { instance, id } ) {
 			return null;
 		}
 
+		// Mirrors `sanitize_title( mb_substr( $user_login, 0, 50 ) )` in `wp_insert_user()`.
 		return reporter
+			.slice( 0, 50 )
 			.toLowerCase()
+			.replaceAll( '.', '-' )
+			.replace( /[^a-z0-9 _-]/g, '' )
 			.replace( /\s+/g, '-' )
-			.replace( /[^a-z0-9_-]/g, '' );
+			.replace( /-+/g, '-' )
+			.replace( /^-|-$/g, '' );
 	} catch ( e ) {
 		warning(
 			`Could not get the reporter of ${ ticketUrl }: ${ e.message }`
