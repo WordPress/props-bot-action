@@ -72,11 +72,13 @@ Anyone with write access to the repository can adjust the props by commenting on
 | Command                        | Description                                                                                          |
 |--------------------------------|------------------------------------------------------------------------------------------------------|
 | `@propsbot add <username>`     | Gives props to a GitHub or WordPress.org user who would not have been picked up from the PR activity. |
-| `@propsbot remove <username>`  | Leaves a GitHub user out of the props, even if they interacted with the PR.                          |
+| `@propsbot remove <username>`  | Leaves a GitHub or WordPress.org user out of the props, even if they interacted with the PR.         |
 
-`@propsbot add <username>` looks for a GitHub user first. When there is none by that name, the username is taken as a WordPress.org username, and added if that account exists. To add a WordPress.org user whose username belongs to someone else on GitHub, use `@propsbot add <username>@git.wordpress.org`.
+`@propsbot add <username>` looks for a GitHub account first. When there is none by that name, the username is taken as a WordPress.org username, and added if that account exists. A WordPress.org username is the one in the address of the profile, `profiles.wordpress.org/<username>/`.
 
-A contributor who is only credited by their WordPress.org username, through that command or a `Co-authored-by: <name> <username@git.wordpress.org>` trailer without a matching GitHub account, is removed by that username.
+`@propsbot remove <username>` leaves out both the GitHub user and the WordPress.org user of that name. WordPress.org users are contributors listed without a GitHub account: those added by their WordPress.org username, and co-authors from a `Co-authored-by: <name> <username@git.wordpress.org>` trailer that GitHub couldn't match to an account.
+
+When a username belongs to different people on GitHub and WordPress.org, `<username>@git.wordpress.org` stands for the WordPress.org user only, in both commands. For example, `@propsbot remove paul` followed by `@propsbot add paul@git.wordpress.org` leaves out the GitHub user and gives props to the WordPress.org user. The order matters, since the most recent command wins.
 
 Anyone can comment `@propsbot refresh` to refresh the props list, as an alternative to adding the `props-bot` label.
 
