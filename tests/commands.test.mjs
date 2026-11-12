@@ -97,15 +97,39 @@ describe( 'parseCommands', () => {
 		);
 	} );
 
-	it( 'ignores usernames GitHub would not allow', () => {
+	it( 'ignores usernames neither GitHub nor WordPress.org would allow', () => {
 		for ( const body of [
 			'@propsbot add -alice',
 			'@propsbot add alice-',
 			'@propsbot add al--ice',
-			'@propsbot add ' + 'a'.repeat( 40 ),
+			'@propsbot add ' + 'a'.repeat( 51 ),
 			'@propsbot add alice") { id }',
 			'@propsbot add alice bob',
 			'@propsbot invite alice',
+		] ) {
+			assert.deepEqual( parseCommands( body ).commands, [], body );
+		}
+	} );
+
+	it( 'takes a WordPress.org username, and its email for the WordPress.org user only', () => {
+		assert.deepEqual(
+			parseCommands(
+				'@propsbot add Some_User@git.wordpress.org\n' +
+					'@propsbot remove @some_user@git.wordpress.org\n' +
+					'@propsbot remove some_user'
+			).commands,
+			[
+				{ action: 'add', username: 'Some_User@git.wordpress.org' },
+				{ action: 'remove', username: 'some_user@git.wordpress.org' },
+				{ action: 'remove', username: 'some_user' },
+			]
+		);
+
+		for ( const body of [
+			'@propsbot add alice@wordpress.org',
+			'@propsbot add alice@git.wordpress.org.example.com',
+			'@propsbot add al.ice@git.wordpress.org',
+			'@propsbot add ' + 'a'.repeat( 51 ) + '@git.wordpress.org',
 		] ) {
 			assert.deepEqual( parseCommands( body ).commands, [], body );
 		}
@@ -137,8 +161,56 @@ describe( 'getPropsOverrides', () => {
 
 		assert.deepEqual( overrides, {
 			added: [ 'alice' ],
-			removed: new Set( [ 'bob' ] ),
+			removed: new Set( [ 'bob', 'bob@git.wordpress.org' ] ),
 		} );
+	} );
+
+	it( 'replays commands for the GitHub and the WordPress.org user of a name in order', async () => {
+		const wpOrg = '@git.wordpress.org';
+
+		for ( const [ commands, added, removed ] of [
+			[
+				[ 'remove paul', `add paul${ wpOrg }` ],
+				[ `paul${ wpOrg }` ],
+				[ 'paul' ],
+			],
+			[
+				[ `add paul${ wpOrg }`, 'remove paul' ],
+				[],
+				[ 'paul', `paul${ wpOrg }` ],
+			],
+			[
+				[ `add paul${ wpOrg }`, 'remove paul', 'add paul' ],
+				[ 'paul' ],
+				[],
+			],
+			[
+				[ 'add paul', `remove paul${ wpOrg }` ],
+				[ 'paul' ],
+				[ `paul${ wpOrg }` ],
+			],
+			[
+				[ `add paul${ wpOrg }`, 'add paul' ],
+				[ `paul${ wpOrg }`, 'paul' ],
+				[],
+			],
+			[
+				[ `remove paul${ wpOrg }`, `add Paul${ wpOrg }` ],
+				[ `Paul${ wpOrg }` ],
+				[],
+			],
+		] ) {
+			assert.deepEqual(
+				await getPropsOverrides(
+					commands.map( ( command ) =>
+						comment( 'maintainer', `@propsbot ${ command }` )
+					),
+					async () => true
+				),
+				{ added, removed: new Set( removed ) },
+				commands.join( ', ' )
+			);
+		}
 	} );
 
 	it( 'ignores commands from users without write access, checking each user once', async () => {
@@ -159,7 +231,7 @@ describe( 'getPropsOverrides', () => {
 
 		assert.deepEqual( overrides, {
 			added: [],
-			removed: new Set( [ 'carol' ] ),
+			removed: new Set( [ 'carol', 'carol@git.wordpress.org' ] ),
 		} );
 		assert.deepEqual( checked, [ 'drive-by', 'maintainer' ] );
 	} );

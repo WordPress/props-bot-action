@@ -10,6 +10,7 @@ import GitHub from '../src/github.js';
  */
 const originalMethods = {
 	getContributorData: GitHub.prototype.getContributorData,
+	getUser: GitHub.prototype.getUser,
 	hasWriteAccess: GitHub.prototype.hasWriteAccess,
 };
 
@@ -61,18 +62,20 @@ function importCollector() {
 }
 
 /**
- * Runs a callback and captures the debug messages it logs.
+ * Runs a callback and captures the messages of one kind it logs.
  *
+ * @param {string}              command  The kind of message, such as `debug` or `warning`.
  * @param {() => Promise<void>} callback The callback to run.
  *
- * @return {Promise<string[]>} The debug messages, in order.
+ * @return {Promise<string[]>} The messages, in order.
  */
-async function captureDebug( callback ) {
+async function captureMessages( command, callback ) {
 	const messages = [];
 	const originalWrite = process.stdout.write;
+	const pattern = new RegExp( `^::${ command }::(.*)` );
 
 	process.stdout.write = ( chunk, ...args ) => {
-		const match = String( chunk ).match( /^::debug::(.*)/ );
+		const match = String( chunk ).match( pattern );
 		if ( match ) {
 			messages.push( match[ 1 ] );
 			return true;
@@ -137,7 +140,7 @@ describe( 'getContributorsList', () => {
 		GitHub.prototype.hasWriteAccess = async () => true;
 
 		const { getContributorsList } = await importCollector();
-		const messages = await captureDebug( getContributorsList );
+		const messages = await captureMessages( 'debug', getContributorsList );
 		/**
 		 * Gets the debug message logged right after a label.
 		 *
@@ -151,7 +154,7 @@ describe( 'getContributorsList', () => {
 		assert.equal( after( 'Reviewers:' ), '["reviewer"]' );
 		assert.equal(
 			after( 'Props Bot command overrides:' ),
-			'{"added":[],"removed":["someone"]}'
+			'{"added":[],"removed":["someone","someone@git.wordpress.org"]}'
 		);
 		assert.deepEqual( JSON.parse( messages.at( -1 ) ), {
 			github: [],
@@ -330,5 +333,158 @@ describe( 'getContributorsList', () => {
 			'https://profiles.wordpress.org/co-author/',
 			'https://profiles.wordpress.org/missing/',
 		] );
+	} );
+
+	it( 'credits added usernames as GitHub users first, then as WordPress.org users, once, unless they are removed', async () => {
+		const checkedProfiles = [];
+		globalThis.fetch = async ( url, { method } ) => {
+			if ( 'HEAD' === method ) {
+				checkedProfiles.push( url );
+				return { ok: true, status: 200 };
+			}
+			return {
+				json: async () => ( { reviewer: { slug: 'reviewer-slug' } } ),
+			};
+		};
+		GitHub.prototype.getContributorData = async () => ( {
+			commits: { nodes: [] },
+			reviews: { nodes: [ { author: actor( 'reviewer' ) } ] },
+			comments: {
+				nodes: [
+					{ author: actor( 'paul' ), body: 'Not the same Paul.' },
+					{
+						author: actor( 'maintainer' ),
+						body:
+							'@propsbot add gh-user\n' +
+							'@propsbot add Added\n' +
+							'@propsbot add reviewer-slug\n' +
+							'@propsbot add removed\n' +
+							'@propsbot remove paul',
+					},
+					{
+						author: actor( 'maintainer' ),
+						body:
+							'@propsbot add paul@git.wordpress.org\n' +
+							'@propsbot remove removed@git.wordpress.org',
+					},
+				],
+			},
+			closingIssuesReferences: { nodes: [] },
+		} );
+		GitHub.prototype.hasWriteAccess = async () => true;
+
+		const githubLookups = [];
+		GitHub.prototype.getUser = async ( username ) => {
+			githubLookups.push( username );
+			return 'gh-user' === username
+				? { login: 'GH-User', type: 'User' }
+				: null;
+		};
+
+		const { getContributorsList } = await importCollector();
+		const contributorsList = await getContributorsList();
+
+		assert.deepEqual( githubLookups, [
+			'gh-user',
+			'Added',
+			'reviewer-slug',
+			'removed',
+		] );
+		assert.deepEqual( contributorsList.svn, [
+			'reviewer-slug',
+			'added',
+			'paul',
+		] );
+		assert.deepEqual( contributorsList.coAuthored, [
+			'Co-authored-by: reviewer <reviewer-slug@git.wordpress.org>',
+			'Co-authored-by: added <added@git.wordpress.org>',
+			'Co-authored-by: paul <paul@git.wordpress.org>',
+		] );
+		assert.deepEqual( contributorsList.unlinked, [ 'GH-User' ] );
+		assert.deepEqual( checkedProfiles, [
+			'https://profiles.wordpress.org/added/',
+			'https://profiles.wordpress.org/paul/',
+		] );
+	} );
+
+	it( 'leaves out added usernames that are not users, but not those it could not check', async () => {
+		const checkedProfiles = [];
+		globalThis.fetch = async ( url, { method } ) => {
+			if ( 'HEAD' === method ) {
+				checkedProfiles.push( url );
+				return {
+					ok: false,
+					status: url.includes( '/flaky/' ) ? 503 : 404,
+				};
+			}
+			return { json: async () => ( {} ) };
+		};
+		GitHub.prototype.getContributorData = async () => ( {
+			commits: { nodes: [] },
+			reviews: { nodes: [] },
+			comments: {
+				nodes: [
+					{
+						author: actor( 'maintainer' ),
+						body:
+							'@propsbot add an-org\n' +
+							'@propsbot add missing\n' +
+							'@propsbot add flaky',
+					},
+				],
+			},
+			closingIssuesReferences: { nodes: [] },
+		} );
+		GitHub.prototype.hasWriteAccess = async () => true;
+		GitHub.prototype.getUser = async ( username ) =>
+			'an-org' === username
+				? { login: 'an-org', type: 'Organization' }
+				: null;
+
+		const { getContributorsList } = await importCollector();
+		let contributorsList;
+		const warnings = await captureMessages( 'warning', async () => {
+			contributorsList = await getContributorsList();
+		} );
+
+		assert.deepEqual( warnings, [
+			'Ignoring the request to add @an-org, who is not a GitHub user.',
+			'Ignoring the request to add missing, whose account could not be found.',
+			'Could not check the WordPress.org account flaky: HTTP 503',
+		] );
+		assert.deepEqual( contributorsList.svn, [] );
+		assert.deepEqual( contributorsList.unlinked, [
+			'flaky@git.wordpress.org',
+		] );
+		assert.deepEqual( checkedProfiles, [
+			'https://profiles.wordpress.org/missing/',
+			'https://profiles.wordpress.org/flaky/',
+		] );
+	} );
+
+	it( 'finds no contributors when the only one is an added username that does not exist', async () => {
+		globalThis.fetch = async ( url, { method } ) =>
+			'HEAD' === method
+				? { ok: false, status: 404 }
+				: { json: async () => ( {} ) };
+		GitHub.prototype.getContributorData = async () => ( {
+			commits: { nodes: [] },
+			reviews: { nodes: [] },
+			comments: {
+				nodes: [
+					{
+						author: actor( 'maintainer' ),
+						body: '@propsbot add missing',
+					},
+				],
+			},
+			closingIssuesReferences: { nodes: [] },
+		} );
+		GitHub.prototype.hasWriteAccess = async () => true;
+		GitHub.prototype.getUser = async () => null;
+
+		const { getContributorsList } = await importCollector();
+
+		assert.equal( await getContributorsList(), undefined );
 	} );
 } );

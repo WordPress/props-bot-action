@@ -204,21 +204,31 @@ export async function getContributorsList() {
 
 	// Process contributors added through Props Bot commands.
 	for ( const username of overrides.added ) {
-		const user = await gh.getUser( username );
+		// A username given as its WordPress.org email is not looked up on GitHub.
+		const isWPOrgEmail = username.includes( '@' );
+		const user = isWPOrgEmail ? null : await gh.getUser( username );
 
-		if ( ! user || 'User' !== user.type ) {
-			core.warning(
-				`Ignoring the request to add @${ username }, who is not a GitHub user.`
-			);
+		if ( user ) {
+			if ( 'User' !== user.type ) {
+				core.warning(
+					`Ignoring the request to add @${ username }, who is not a GitHub user.`
+				);
+			} else if ( ! contributorAlreadyPresent( user.login ) ) {
+				contributors.added.add( user.login );
+				userData[ user.login ] = user;
+			}
 			continue;
 		}
 
-		if ( contributorAlreadyPresent( user.login ) ) {
-			continue;
-		}
+		// Without a GitHub account by that name, it can still be a WordPress.org user, credited like a co-author without one.
+		const email = (
+			isWPOrgEmail ? username : `${ username }@git.wordpress.org`
+		).toLowerCase();
 
-		contributors.added.add( user.login );
-		userData[ user.login ] = user;
+		if ( ! contributorAlreadyPresent( email ) ) {
+			contributors.added.add( email );
+			userData[ email ] = { email };
+		}
 	}
 
 	core.debug( 'Added through Props Bot commands:' );
@@ -282,19 +292,42 @@ export async function getContributorsList() {
 		}
 
 		// Already credited through a GitHub account or another email, or removed through a Props Bot command.
-		if ( linkedSlugs.has( slug ) || removedUsers.has( slug ) ) {
-			contributors.committers.delete( contributor );
+		if (
+			linkedSlugs.has( slug ) ||
+			removedUsers.has( `${ slug }@git.wordpress.org` )
+		) {
+			contributorTypes.forEach( ( type ) =>
+				contributors[ type ].delete( contributor )
+			);
 			continue;
 		}
 
 		// Unknown accounts stay unlinked, so a typo doesn't make it into the props.
-		if ( ! ( await wpOrgUserExists( slug ) ) ) {
+		const exists = await wpOrgUserExists( slug );
+		if ( ! exists ) {
+			// An added username that doesn't exist has no GitHub account to list as unlinked.
+			if (
+				false === exists &&
+				contributors.added.delete( contributor )
+			) {
+				core.warning(
+					`Ignoring the request to add ${ slug }, whose account could not be found.`
+				);
+			}
 			continue;
 		}
 
 		linkedSlugs.add( slug );
 		userData[ contributor ].dotOrg = slug;
 		contributorLists.svn.push( slug );
+	}
+
+	// The contributors left out above can have been the only ones.
+	if (
+		contributorTypes.every( ( type ) => 0 === contributors[ type ].size )
+	) {
+		core.info( 'No contributors found.' );
+		return;
 	}
 
 	contributorLists.coAuthored = [];

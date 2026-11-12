@@ -37454,14 +37454,17 @@ function getOctokit(token, options, ...additionalPlugins) {
  * Matches a single `@propsbot add|remove <username>` or `@propsbot refresh`
  * command line.
  *
- * The username follows GitHub's login rules, which also keeps it safe to
- * interpolate into GraphQL queries and render into the props comment. Lines
- * indented by four or more spaces are code in Markdown, so they don't match.
+ * The username can be a GitHub login or a WordPress.org username, and its
+ * characters keep it safe to interpolate into GraphQL queries and render into
+ * the props comment. As a `<username>@git.wordpress.org` email it names the
+ * WordPress.org user only, for when the same username is someone else on
+ * GitHub. Lines indented by four or more spaces are code in Markdown, so they
+ * don't match.
  *
  * @type {RegExp}
  */
 const commandPattern =
-	/^ {0,3}@propsbot\s+(?:(add|remove)\s+@?([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})|refresh)\s*$/i;
+	/^ {0,3}@propsbot\s+(?:(add|remove)\s+@?([a-z\d_](?:[a-z\d_]|-(?=[a-z\d_])){0,49}(?:@git\.wordpress\.org)?)|refresh)\s*$/i;
 
 /**
  * Matches a code fence line, capturing the fence and anything after it.
@@ -37537,19 +37540,22 @@ function parseCommands( body ) {
  * Replays the Props Bot commands in a list of comments.
  *
  * Comments are processed in the order given, so a later command for a user
- * replaces an earlier one. Commands from bots and other accounts that aren't
- * users, and from users without write access to the repository, are ignored.
- * `refresh` commands are skipped, since the comment
- * itself already triggered the run.
+ * replaces an earlier one. A username alone stands for both the GitHub user
+ * and the WordPress.org user of that name, and a `@git.wordpress.org` email
+ * for the WordPress.org user only. Commands from bots and other accounts that
+ * aren't users, and from users without write access to the repository, are
+ * ignored. `refresh` commands are skipped, since the comment itself already
+ * triggered the run.
  *
  * @param {Object[]}                               comments       The comments, oldest first.
  * @param {(username: string) => Promise<boolean>} hasWriteAccess Resolves to whether a username may run commands.
  *
  * @return {Promise<{added: string[], removed: Set<string>}>} The usernames to add,
- *         and the lowercased usernames to remove.
+ *         and the lowercased usernames to remove, where an email is a WordPress.org user.
  */
 async function getPropsOverrides( comments, hasWriteAccess ) {
-	const overrides = new Map();
+	const added = new Map();
+	const removed = new Set();
 	const access = new Map();
 
 	for ( const comment of comments ) {
@@ -37577,21 +37583,24 @@ async function getPropsOverrides( comments, hasWriteAccess ) {
 		}
 
 		for ( const { action, username } of commands ) {
-			overrides.set( username.toLowerCase(), { action, username } );
+			const key = username.toLowerCase();
+			const keys = key.includes( '@' )
+				? [ key ]
+				: [ key, `${ key }@git.wordpress.org` ];
+
+			if ( 'add' === action ) {
+				added.set( key, username );
+				keys.forEach( ( user ) => removed.delete( user ) );
+			} else {
+				keys.forEach( ( user ) => {
+					added.delete( user );
+					removed.add( user );
+				} );
+			}
 		}
 	}
 
-	const added = [];
-	const removed = new Set();
-	for ( const [ key, { action, username } ] of overrides ) {
-		if ( 'add' === action ) {
-			added.push( username );
-		} else {
-			removed.add( key );
-		}
-	}
-
-	return { added, removed };
+	return { added: [ ...added.values() ], removed };
 }
 
 ;// CONCATENATED MODULE: ./src/github.js
@@ -37997,7 +38006,7 @@ class github_GitHub {
 		commentMessage +=
 			'\n---\n\n<details>\n<summary>Props Bot commands</summary>\n<br />\n\n' +
 			'You can trigger Props Bot actions by commenting on this PR:\n\n' +
-			'- `@propsbot add <username>` to give props to a GitHub user. Requires write access.\n' +
+			'- `@propsbot add <username>` to give props to a GitHub or WordPress.org user. Requires write access.\n' +
 			'- `@propsbot remove <username>` to leave a user out of the props. Requires write access.\n' +
 			'- `@propsbot refresh` to refresh this list. Adding the `props-bot` label works too.\n\n' +
 			'</details>\n';
@@ -38110,7 +38119,7 @@ async function getWPOrgData( githubUsers ) {
  *
  * @param {string} slug The WordPress.org username.
  *
- * @return {Promise<boolean>} true if the account exists, false if it doesn't or the check fails.
+ * @return {Promise<boolean|null>} true if the account exists, false if it doesn't, and null if the check fails.
  */
 async function wpOrgUserExists( slug ) {
 	try {
@@ -38132,6 +38141,7 @@ async function wpOrgUserExists( slug ) {
 			warning(
 				`Could not check the WordPress.org account ${ slug }: HTTP ${ response.status }`
 			);
+			return null;
 		}
 
 		return response.ok;
@@ -38139,7 +38149,7 @@ async function wpOrgUserExists( slug ) {
 		warning(
 			`Could not check the WordPress.org account ${ slug }: ${ e.message }`
 		);
-		return false;
+		return null;
 	}
 }
 
@@ -38350,21 +38360,31 @@ async function getContributorsList() {
 
 	// Process contributors added through Props Bot commands.
 	for ( const username of overrides.added ) {
-		const user = await gh.getUser( username );
+		// A username given as its WordPress.org email is not looked up on GitHub.
+		const isWPOrgEmail = username.includes( '@' );
+		const user = isWPOrgEmail ? null : await gh.getUser( username );
 
-		if ( ! user || 'User' !== user.type ) {
-			warning(
-				`Ignoring the request to add @${ username }, who is not a GitHub user.`
-			);
+		if ( user ) {
+			if ( 'User' !== user.type ) {
+				warning(
+					`Ignoring the request to add @${ username }, who is not a GitHub user.`
+				);
+			} else if ( ! contributorAlreadyPresent( user.login ) ) {
+				contributors.added.add( user.login );
+				userData[ user.login ] = user;
+			}
 			continue;
 		}
 
-		if ( contributorAlreadyPresent( user.login ) ) {
-			continue;
-		}
+		// Without a GitHub account by that name, it can still be a WordPress.org user, credited like a co-author without one.
+		const email = (
+			isWPOrgEmail ? username : `${ username }@git.wordpress.org`
+		).toLowerCase();
 
-		contributors.added.add( user.login );
-		userData[ user.login ] = user;
+		if ( ! contributorAlreadyPresent( email ) ) {
+			contributors.added.add( email );
+			userData[ email ] = { email };
+		}
 	}
 
 	core_debug( 'Added through Props Bot commands:' );
@@ -38428,19 +38448,42 @@ async function getContributorsList() {
 		}
 
 		// Already credited through a GitHub account or another email, or removed through a Props Bot command.
-		if ( linkedSlugs.has( slug ) || removedUsers.has( slug ) ) {
-			contributors.committers.delete( contributor );
+		if (
+			linkedSlugs.has( slug ) ||
+			removedUsers.has( `${ slug }@git.wordpress.org` )
+		) {
+			contributorTypes.forEach( ( type ) =>
+				contributors[ type ].delete( contributor )
+			);
 			continue;
 		}
 
 		// Unknown accounts stay unlinked, so a typo doesn't make it into the props.
-		if ( ! ( await wpOrgUserExists( slug ) ) ) {
+		const exists = await wpOrgUserExists( slug );
+		if ( ! exists ) {
+			// An added username that doesn't exist has no GitHub account to list as unlinked.
+			if (
+				false === exists &&
+				contributors.added.delete( contributor )
+			) {
+				warning(
+					`Ignoring the request to add ${ slug }, whose account could not be found.`
+				);
+			}
 			continue;
 		}
 
 		linkedSlugs.add( slug );
 		userData[ contributor ].dotOrg = slug;
 		contributorLists.svn.push( slug );
+	}
+
+	// The contributors left out above can have been the only ones.
+	if (
+		contributorTypes.every( ( type ) => 0 === contributors[ type ].size )
+	) {
+		info( 'No contributors found.' );
+		return;
 	}
 
 	contributorLists.coAuthored = [];

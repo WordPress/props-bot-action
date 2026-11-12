@@ -31,7 +31,7 @@ export async function getWPOrgData( githubUsers ) {
  *
  * @param {string} slug The WordPress.org username.
  *
- * @return {Promise<boolean>} true if the account exists, false if it doesn't or the check fails.
+ * @return {Promise<boolean|null>} true if the account exists, false if it doesn't, and null if the check fails.
  */
 export async function wpOrgUserExists( slug ) {
 	try {
@@ -53,6 +53,7 @@ export async function wpOrgUserExists( slug ) {
 			core.warning(
 				`Could not check the WordPress.org account ${ slug }: HTTP ${ response.status }`
 			);
+			return null;
 		}
 
 		return response.ok;
@@ -60,6 +61,6 @@ export async function wpOrgUserExists( slug ) {
 		core.warning(
 			`Could not check the WordPress.org account ${ slug }: ${ e.message }`
 		);
-		return false;
+		return null;
 	}
 }
