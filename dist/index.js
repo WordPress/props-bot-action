@@ -37454,14 +37454,17 @@ function getOctokit(token, options, ...additionalPlugins) {
  * Matches a single `@propsbot add|remove <username>` or `@propsbot refresh`
  * command line.
  *
- * The username follows GitHub's login rules, which also keeps it safe to
- * interpolate into GraphQL queries and render into the props comment. Lines
- * indented by four or more spaces are code in Markdown, so they don't match.
+ * The username can be a GitHub login or a WordPress.org username, and its
+ * characters keep it safe to interpolate into GraphQL queries and render into
+ * the props comment. `add` also takes a WordPress.org username as its
+ * `<username>@git.wordpress.org` email, for when the same username is someone
+ * else on GitHub. Lines indented by four or more spaces are code in Markdown,
+ * so they don't match.
  *
  * @type {RegExp}
  */
 const commandPattern =
-	/^ {0,3}@propsbot\s+(?:(add|remove)\s+@?([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})|refresh)\s*$/i;
+	/^ {0,3}@propsbot\s+(?:(add|remove)\s+@?([a-z\d_](?:[a-z\d_]|-(?=[a-z\d_])){0,49})|(add)\s+([a-z\d_](?:[a-z\d_]|-(?=[a-z\d_])){0,49}@git\.wordpress\.org)|refresh)\s*$/i;
 
 /**
  * Matches a code fence line, capturing the fence and anything after it.
@@ -37520,9 +37523,11 @@ function parseCommands( body ) {
 			continue;
 		}
 
+		const action = match[ 1 ] ?? match[ 3 ];
+		const username = match[ 2 ] ?? match[ 4 ];
 		commands.push(
-			match[ 1 ]
-				? { action: match[ 1 ].toLowerCase(), username: match[ 2 ] }
+			action
+				? { action: action.toLowerCase(), username }
 				: { action: 'refresh' }
 		);
 	}
@@ -37537,8 +37542,10 @@ function parseCommands( body ) {
  * Replays the Props Bot commands in a list of comments.
  *
  * Comments are processed in the order given, so a later command for a user
- * replaces an earlier one. Commands from bots and other accounts that aren't
- * users, and from users without write access to the repository, are ignored.
+ * replaces an earlier one. A WordPress.org username that was added is also
+ * removed by the username alone. Commands from bots and other accounts that
+ * aren't users, and from users without write access to the repository, are
+ * ignored.
  * `refresh` commands are skipped, since the comment
  * itself already triggered the run.
  *
@@ -37577,21 +37584,26 @@ async function getPropsOverrides( comments, hasWriteAccess ) {
 		}
 
 		for ( const { action, username } of commands ) {
-			overrides.set( username.toLowerCase(), { action, username } );
+			const key = username.toLowerCase();
+
+			// Re-inserting keeps the overrides in the order of each user's latest command.
+			overrides.delete( key );
+			overrides.set( key, { action, username } );
 		}
 	}
 
-	const added = [];
+	const added = new Map();
 	const removed = new Set();
 	for ( const [ key, { action, username } ] of overrides ) {
 		if ( 'add' === action ) {
-			added.push( username );
+			added.set( key, username );
 		} else {
 			removed.add( key );
+			added.delete( `${ key }@git.wordpress.org` );
 		}
 	}
 
-	return { added, removed };
+	return { added: [ ...added.values() ], removed };
 }
 
 ;// CONCATENATED MODULE: ./src/github.js
@@ -37997,7 +38009,7 @@ class github_GitHub {
 		commentMessage +=
 			'\n---\n\n<details>\n<summary>Props Bot commands</summary>\n<br />\n\n' +
 			'You can trigger Props Bot actions by commenting on this PR:\n\n' +
-			'- `@propsbot add <username>` to give props to a GitHub user. Requires write access.\n' +
+			'- `@propsbot add <username>` to give props to a GitHub or WordPress.org user. Requires write access.\n' +
 			'- `@propsbot remove <username>` to leave a user out of the props. Requires write access.\n' +
 			'- `@propsbot refresh` to refresh this list. Adding the `props-bot` label works too.\n\n' +
 			'</details>\n';
@@ -38349,22 +38361,30 @@ async function getContributorsList() {
 	debugValue( contributors.commenters );
 
 	// Process contributors added through Props Bot commands.
+	const addedEmails = new Set();
 	for ( const username of overrides.added ) {
-		const user = await gh.getUser( username );
+		// A username given as its WordPress.org email is not looked up on GitHub.
+		const isWPOrgEmail = username.includes( '@' );
+		const user = isWPOrgEmail ? null : await gh.getUser( username );
 
-		if ( ! user || 'User' !== user.type ) {
-			warning(
-				`Ignoring the request to add @${ username }, who is not a GitHub user.`
-			);
+		if ( user && 'User' === user.type ) {
+			if ( ! contributorAlreadyPresent( user.login ) ) {
+				contributors.added.add( user.login );
+				userData[ user.login ] = user;
+			}
 			continue;
 		}
 
-		if ( contributorAlreadyPresent( user.login ) ) {
-			continue;
-		}
+		// Anyone else can still be a WordPress.org user, credited like a co-author without a GitHub account.
+		const email = (
+			isWPOrgEmail ? username : `${ username }@git.wordpress.org`
+		).toLowerCase();
+		addedEmails.add( email );
 
-		contributors.added.add( user.login );
-		userData[ user.login ] = user;
+		if ( ! contributorAlreadyPresent( email ) ) {
+			contributors.added.add( email );
+			userData[ email ] = { email };
+		}
 	}
 
 	core_debug( 'Added through Props Bot commands:' );
@@ -38427,14 +38447,26 @@ async function getContributorsList() {
 			continue;
 		}
 
-		// Already credited through a GitHub account or another email, or removed through a Props Bot command.
-		if ( linkedSlugs.has( slug ) || removedUsers.has( slug ) ) {
-			contributors.committers.delete( contributor );
+		// Already credited through a GitHub account or another email, or removed through a Props Bot command that no later one undid.
+		if (
+			linkedSlugs.has( slug ) ||
+			( removedUsers.has( slug ) &&
+				! addedEmails.has( contributor.toLowerCase() ) )
+		) {
+			contributorTypes.forEach( ( type ) =>
+				contributors[ type ].delete( contributor )
+			);
 			continue;
 		}
 
 		// Unknown accounts stay unlinked, so a typo doesn't make it into the props.
 		if ( ! ( await wpOrgUserExists( slug ) ) ) {
+			// Added usernames have no GitHub account to list as unlinked.
+			if ( contributors.added.delete( contributor ) ) {
+				warning(
+					`Ignoring the request to add ${ slug }, whose account could not be found.`
+				);
+			}
 			continue;
 		}
 

@@ -203,22 +203,30 @@ export async function getContributorsList() {
 	debugValue( contributors.commenters );
 
 	// Process contributors added through Props Bot commands.
+	const addedEmails = new Set();
 	for ( const username of overrides.added ) {
-		const user = await gh.getUser( username );
+		// A username given as its WordPress.org email is not looked up on GitHub.
+		const isWPOrgEmail = username.includes( '@' );
+		const user = isWPOrgEmail ? null : await gh.getUser( username );
 
-		if ( ! user || 'User' !== user.type ) {
-			core.warning(
-				`Ignoring the request to add @${ username }, who is not a GitHub user.`
-			);
+		if ( user && 'User' === user.type ) {
+			if ( ! contributorAlreadyPresent( user.login ) ) {
+				contributors.added.add( user.login );
+				userData[ user.login ] = user;
+			}
 			continue;
 		}
 
-		if ( contributorAlreadyPresent( user.login ) ) {
-			continue;
-		}
+		// Anyone else can still be a WordPress.org user, credited like a co-author without a GitHub account.
+		const email = (
+			isWPOrgEmail ? username : `${ username }@git.wordpress.org`
+		).toLowerCase();
+		addedEmails.add( email );
 
-		contributors.added.add( user.login );
-		userData[ user.login ] = user;
+		if ( ! contributorAlreadyPresent( email ) ) {
+			contributors.added.add( email );
+			userData[ email ] = { email };
+		}
 	}
 
 	core.debug( 'Added through Props Bot commands:' );
@@ -281,14 +289,26 @@ export async function getContributorsList() {
 			continue;
 		}
 
-		// Already credited through a GitHub account or another email, or removed through a Props Bot command.
-		if ( linkedSlugs.has( slug ) || removedUsers.has( slug ) ) {
-			contributors.committers.delete( contributor );
+		// Already credited through a GitHub account or another email, or removed through a Props Bot command that no later one undid.
+		if (
+			linkedSlugs.has( slug ) ||
+			( removedUsers.has( slug ) &&
+				! addedEmails.has( contributor.toLowerCase() ) )
+		) {
+			contributorTypes.forEach( ( type ) =>
+				contributors[ type ].delete( contributor )
+			);
 			continue;
 		}
 
 		// Unknown accounts stay unlinked, so a typo doesn't make it into the props.
 		if ( ! ( await wpOrgUserExists( slug ) ) ) {
+			// Added usernames have no GitHub account to list as unlinked.
+			if ( contributors.added.delete( contributor ) ) {
+				core.warning(
+					`Ignoring the request to add ${ slug }, whose account could not be found.`
+				);
+			}
 			continue;
 		}
 

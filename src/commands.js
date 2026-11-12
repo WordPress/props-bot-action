@@ -4,14 +4,17 @@ import * as core from '@actions/core';
  * Matches a single `@propsbot add|remove <username>` or `@propsbot refresh`
  * command line.
  *
- * The username follows GitHub's login rules, which also keeps it safe to
- * interpolate into GraphQL queries and render into the props comment. Lines
- * indented by four or more spaces are code in Markdown, so they don't match.
+ * The username can be a GitHub login or a WordPress.org username, and its
+ * characters keep it safe to interpolate into GraphQL queries and render into
+ * the props comment. `add` also takes a WordPress.org username as its
+ * `<username>@git.wordpress.org` email, for when the same username is someone
+ * else on GitHub. Lines indented by four or more spaces are code in Markdown,
+ * so they don't match.
  *
  * @type {RegExp}
  */
 const commandPattern =
-	/^ {0,3}@propsbot\s+(?:(add|remove)\s+@?([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})|refresh)\s*$/i;
+	/^ {0,3}@propsbot\s+(?:(add|remove)\s+@?([a-z\d_](?:[a-z\d_]|-(?=[a-z\d_])){0,49})|(add)\s+([a-z\d_](?:[a-z\d_]|-(?=[a-z\d_])){0,49}@git\.wordpress\.org)|refresh)\s*$/i;
 
 /**
  * Matches a code fence line, capturing the fence and anything after it.
@@ -70,9 +73,11 @@ export function parseCommands( body ) {
 			continue;
 		}
 
+		const action = match[ 1 ] ?? match[ 3 ];
+		const username = match[ 2 ] ?? match[ 4 ];
 		commands.push(
-			match[ 1 ]
-				? { action: match[ 1 ].toLowerCase(), username: match[ 2 ] }
+			action
+				? { action: action.toLowerCase(), username }
 				: { action: 'refresh' }
 		);
 	}
@@ -87,8 +92,10 @@ export function parseCommands( body ) {
  * Replays the Props Bot commands in a list of comments.
  *
  * Comments are processed in the order given, so a later command for a user
- * replaces an earlier one. Commands from bots and other accounts that aren't
- * users, and from users without write access to the repository, are ignored.
+ * replaces an earlier one. A WordPress.org username that was added is also
+ * removed by the username alone. Commands from bots and other accounts that
+ * aren't users, and from users without write access to the repository, are
+ * ignored.
  * `refresh` commands are skipped, since the comment
  * itself already triggered the run.
  *
@@ -127,19 +134,24 @@ export async function getPropsOverrides( comments, hasWriteAccess ) {
 		}
 
 		for ( const { action, username } of commands ) {
-			overrides.set( username.toLowerCase(), { action, username } );
+			const key = username.toLowerCase();
+
+			// Re-inserting keeps the overrides in the order of each user's latest command.
+			overrides.delete( key );
+			overrides.set( key, { action, username } );
 		}
 	}
 
-	const added = [];
+	const added = new Map();
 	const removed = new Set();
 	for ( const [ key, { action, username } ] of overrides ) {
 		if ( 'add' === action ) {
-			added.push( username );
+			added.set( key, username );
 		} else {
 			removed.add( key );
+			added.delete( `${ key }@git.wordpress.org` );
 		}
 	}
 
-	return { added, removed };
+	return { added: [ ...added.values() ], removed };
 }

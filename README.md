@@ -69,12 +69,14 @@ permissions:
 
 Anyone with write access to the repository can adjust the props by commenting on the pull request:
 
-| Command                        | Description                                                                         |
-|--------------------------------|---------------------------------------------------------------------------------------|
-| `@propsbot add <username>`     | Gives props to a GitHub user who would not have been picked up from the PR activity. |
-| `@propsbot remove <username>`  | Leaves a GitHub user out of the props, even if they interacted with the PR.          |
+| Command                        | Description                                                                                          |
+|--------------------------------|------------------------------------------------------------------------------------------------------|
+| `@propsbot add <username>`     | Gives props to a GitHub or WordPress.org user who would not have been picked up from the PR activity. |
+| `@propsbot remove <username>`  | Leaves a GitHub user out of the props, even if they interacted with the PR.                          |
 
-A co-author who is only credited through a `Co-authored-by: <name> <username@git.wordpress.org>` trailer, without a matching GitHub account, is removed by their WordPress.org username.
+`@propsbot add <username>` looks for a GitHub user first. When there is none by that name, the username is taken as a WordPress.org username, and added if that account exists. To add a WordPress.org user whose username belongs to someone else on GitHub, use `@propsbot add <username>@git.wordpress.org`.
+
+A contributor who is only credited by their WordPress.org username, through that command or a `Co-authored-by: <name> <username@git.wordpress.org>` trailer without a matching GitHub account, is removed by that username.
 
 Anyone can comment `@propsbot refresh` to refresh the props list, as an alternative to adding the `props-bot` label.
 

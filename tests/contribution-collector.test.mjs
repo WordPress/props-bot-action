@@ -10,6 +10,7 @@ import GitHub from '../src/github.js';
  */
 const originalMethods = {
 	getContributorData: GitHub.prototype.getContributorData,
+	getUser: GitHub.prototype.getUser,
 	hasWriteAccess: GitHub.prototype.hasWriteAccess,
 };
 
@@ -329,6 +330,87 @@ describe( 'getContributorsList', () => {
 		assert.deepEqual( checkedProfiles, [
 			'https://profiles.wordpress.org/co-author/',
 			'https://profiles.wordpress.org/missing/',
+		] );
+	} );
+
+	it( 'credits usernames added through a command as GitHub users first, then as WordPress.org users, once, if they exist and are not removed later', async () => {
+		const checkedProfiles = [];
+		globalThis.fetch = async ( url, { method } ) => {
+			if ( 'HEAD' === method ) {
+				checkedProfiles.push( url );
+				return { ok: ! url.includes( '/missing/' ) };
+			}
+			return {
+				json: async () => ( { reviewer: { slug: 'reviewer-slug' } } ),
+			};
+		};
+		GitHub.prototype.getContributorData = async () => ( {
+			commits: { nodes: [] },
+			reviews: { nodes: [ { author: actor( 'reviewer' ) } ] },
+			comments: {
+				nodes: [
+					{ author: actor( 'paul' ), body: 'Not the same Paul.' },
+					{
+						author: actor( 'maintainer' ),
+						body:
+							'@propsbot add gh-user\n' +
+							'@propsbot add Added\n' +
+							'@propsbot add missing\n' +
+							'@propsbot add an-org\n' +
+							'@propsbot add reviewer-slug\n' +
+							'@propsbot add removed@git.wordpress.org\n' +
+							'@propsbot remove paul',
+					},
+					{
+						author: actor( 'maintainer' ),
+						body:
+							'@propsbot add paul@git.wordpress.org\n' +
+							'@propsbot remove removed',
+					},
+				],
+			},
+			closingIssuesReferences: { nodes: [] },
+		} );
+		GitHub.prototype.hasWriteAccess = async () => true;
+		const githubLookups = [];
+		GitHub.prototype.getUser = async ( username ) => {
+			githubLookups.push( username );
+			return (
+				{
+					'gh-user': { login: 'GH-User', type: 'User' },
+					'an-org': { login: 'an-org', type: 'Organization' },
+				}[ username ] ?? null
+			);
+		};
+
+		const { getContributorsList } = await importCollector();
+		const contributorsList = await getContributorsList();
+
+		assert.deepEqual( githubLookups, [
+			'gh-user',
+			'Added',
+			'missing',
+			'an-org',
+			'reviewer-slug',
+		] );
+		assert.deepEqual( contributorsList.svn, [
+			'reviewer-slug',
+			'added',
+			'an-org',
+			'paul',
+		] );
+		assert.deepEqual( contributorsList.coAuthored, [
+			'Co-authored-by: reviewer <reviewer-slug@git.wordpress.org>',
+			'Co-authored-by: added <added@git.wordpress.org>',
+			'Co-authored-by: an-org <an-org@git.wordpress.org>',
+			'Co-authored-by: paul <paul@git.wordpress.org>',
+		] );
+		assert.deepEqual( contributorsList.unlinked, [ 'GH-User' ] );
+		assert.deepEqual( checkedProfiles, [
+			'https://profiles.wordpress.org/added/',
+			'https://profiles.wordpress.org/missing/',
+			'https://profiles.wordpress.org/an-org/',
+			'https://profiles.wordpress.org/paul/',
 		] );
 	} );
 } );

@@ -45,7 +45,7 @@ const expectedList =
 	"**To understand the WordPress project's expectations around crediting contributors, please [review the Contributor Attribution page in the Core Handbook](https://make.wordpress.org/core/handbook/best-practices/contributor-attribution-props/).**\n" +
 	'\n---\n\n<details>\n<summary>Props Bot commands</summary>\n<br />\n\n' +
 	'You can trigger Props Bot actions by commenting on this PR:\n\n' +
-	'- `@propsbot add <username>` to give props to a GitHub user. Requires write access.\n' +
+	'- `@propsbot add <username>` to give props to a GitHub or WordPress.org user. Requires write access.\n' +
 	'- `@propsbot remove <username>` to leave a user out of the props. Requires write access.\n' +
 	'- `@propsbot refresh` to refresh this list. Adding the `props-bot` label works too.\n\n' +
 	'</details>\n';

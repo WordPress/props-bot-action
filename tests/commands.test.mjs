@@ -97,15 +97,37 @@ describe( 'parseCommands', () => {
 		);
 	} );
 
-	it( 'ignores usernames GitHub would not allow', () => {
+	it( 'ignores usernames neither GitHub nor WordPress.org would allow', () => {
 		for ( const body of [
 			'@propsbot add -alice',
 			'@propsbot add alice-',
 			'@propsbot add al--ice',
-			'@propsbot add ' + 'a'.repeat( 40 ),
+			'@propsbot add ' + 'a'.repeat( 51 ),
 			'@propsbot add alice") { id }',
 			'@propsbot add alice bob',
 			'@propsbot invite alice',
+		] ) {
+			assert.deepEqual( parseCommands( body ).commands, [], body );
+		}
+	} );
+
+	it( 'takes a WordPress.org username, and its email for add only', () => {
+		assert.deepEqual(
+			parseCommands(
+				'@propsbot add Some_User@git.wordpress.org\n@propsbot remove some_user'
+			).commands,
+			[
+				{ action: 'add', username: 'Some_User@git.wordpress.org' },
+				{ action: 'remove', username: 'some_user' },
+			]
+		);
+
+		for ( const body of [
+			'@propsbot remove alice@git.wordpress.org',
+			'@propsbot add alice@wordpress.org',
+			'@propsbot add alice@git.wordpress.org.example.com',
+			'@propsbot add al.ice@git.wordpress.org',
+			'@propsbot add ' + 'a'.repeat( 51 ) + '@git.wordpress.org',
 		] ) {
 			assert.deepEqual( parseCommands( body ).commands, [], body );
 		}
@@ -138,6 +160,28 @@ describe( 'getPropsOverrides', () => {
 		assert.deepEqual( overrides, {
 			added: [ 'alice' ],
 			removed: new Set( [ 'bob' ] ),
+		} );
+	} );
+
+	it( 'removes an added WordPress.org username by the username alone, unless it is added again later', async () => {
+		const overrides = await getPropsOverrides(
+			[
+				comment(
+					'maintainer',
+					'@propsbot add alice@git.wordpress.org\n@propsbot add Bob@git.wordpress.org'
+				),
+				comment(
+					'maintainer',
+					'@propsbot remove alice\n@propsbot remove bob'
+				),
+				comment( 'maintainer', '@propsbot add bob@git.wordpress.org' ),
+			],
+			async () => true
+		);
+
+		assert.deepEqual( overrides, {
+			added: [ 'bob@git.wordpress.org' ],
+			removed: new Set( [ 'alice', 'bob' ] ),
 		} );
 	} );
 
